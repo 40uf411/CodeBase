@@ -18,8 +18,19 @@ def get_application() -> FastAPI:
         license_info=settings.PROJECT_LICENSE_INFO,
     )
 
-    if settings.DEBUG:
-        Base.metadata.create_all(bind=engine)
+    # Database schema management
+    # --------------------------
+    # Database tables are managed via Alembic migrations.
+    # To initialize the database schema for the first time or to apply pending migrations,
+    # run the following Alembic command:
+    #
+    # alembic upgrade head
+    #
+    # This command should be part of your deployment process and development setup.
+    # Automatic table creation (Base.metadata.create_all) has been removed from application
+    # startup to promote a more controlled and explicit schema management practice.
+    # For development, ensure you run 'alembic upgrade head' after setting up your database
+    # and before running the application for the first time.
 
     # CORS
     app.add_middleware(

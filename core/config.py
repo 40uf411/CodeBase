@@ -32,10 +32,12 @@ class Settings(BaseSettings):
     
     # CORS settings
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = [
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "https://example.com",
+        "http://localhost:3000", # Common frontend dev port
+        "http://localhost:8000"  # Default Uvicorn port if frontend is served by FastAPI itself
     ]
+    # In production, this MUST be overridden via environment variables
+    # to reflect the actual domain(s) of your frontend application.
+    # e.g., BACKEND_CORS_ORIGINS='["https://your-app-domain.com", "https://www.your-app-domain.com"]'
 
     # PostgreSQL database settings
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
@@ -52,39 +54,71 @@ class Settings(BaseSettings):
         )
     
     POSTGRES_SERVER: str = "localhost"
-    POSTGRES_USER: str = "admin"
-    POSTGRES_PASSWORD: str = "6534"
+    POSTGRES_USER: str = "admin"  # Default for development. Should be changed in .env for production.
+    POSTGRES_PASSWORD: Optional[str] = None
     POSTGRES_DB: str = "test"
     POSTGRES_PORT: str = "5432"
     SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn] = None
-    
+
+    @validator("POSTGRES_PASSWORD", pre=False)
+    def validate_postgres_password(cls, v: Optional[str], values: Dict[str, Any]) -> Optional[str]:
+        if not values.get("DEBUG") and values.get("POSTGRES_USER") and not v:
+            raise ValueError(
+                "POSTGRES_PASSWORD must be set in a production environment (when DEBUG=False) if POSTGRES_USER is set."
+            )
+        return v
+
     # DragonFlyDB (Redis-compatible) settings
     DRAGONFLY_HOST: str = "localhost"
     DRAGONFLY_PORT: int = 6379
     DRAGONFLY_DB: int = 0
     DRAGONFLY_PASSWORD: Optional[str] = None
-    
+
     # JWT settings
-    JWT_SECRET_KEY: str = "your_jwt_secret_key"
-    JWT_ISSUER: str = "your_jwt_issuer"
-    JWT_AUDIENCE: str = "your_jwt_audience"
+    JWT_SECRET_KEY: Optional[str] = None
+    JWT_ISSUER: str = "your_jwt_issuer"  # Default for development. Should be changed in .env for production.
+    JWT_AUDIENCE: str = "your_jwt_audience"  # Default for development. Should be changed in .env for production.
     JWT_EXPIRATION: int = 30  # in minutes
     JWT_REFRESH_EXPIRATION: int = 7  # in days
     JWT_ALGORITHM: str = "HS256"
     JWT_TOKEN_TYPE: str = "Bearer"
     JWT_TOKEN_PREFIX: str = "CB "
     ALGORITHM: str = "HS256"
-    
+
+    @validator("JWT_SECRET_KEY", pre=False)
+    def validate_jwt_secret_key(cls, v: Optional[str], values: Dict[str, Any]) -> Optional[str]:
+        if not values.get("DEBUG") and not v:
+            raise ValueError("JWT_SECRET_KEY must be set in a production environment (when DEBUG=False).")
+        if values.get("DEBUG") and not v:
+            print(
+                "WARNING: JWT_SECRET_KEY is not set. Using a default insecure key for DEBUG mode. "
+                "SET THIS IN YOUR .env FILE for security, even in development."
+            )
+            return "insecure_debug_key_please_replace"
+        return v
+
     # Google OAuth2 settings (optional)
-    GOOGLE_CLIENT_ID: Optional[str] = None
-    GOOGLE_CLIENT_SECRET: Optional[str] = None
-    GOOGLE_REDIRECT_URI: Optional[str] = None
-    GOOGLE_SECRET_KEY: str = "your_google_secret_key"
+    GOOGLE_CLIENT_ID: Optional[str] = None  # Optional: Configure via env var if Google OAuth is used.
+    GOOGLE_CLIENT_SECRET: Optional[str] = None # Optional: Configure via env var if Google OAuth is used.
+    GOOGLE_REDIRECT_URI: Optional[str] = None # Optional: Configure via env var if Google OAuth is used.
+    GOOGLE_SECRET_KEY: Optional[str] = None # This is an unusual name, typically GOOGLE_CLIENT_SECRET is the primary secret.
+                                          # If this is a distinct secret (e.g., for API key), configure via env var if used.
+
+    @validator("GOOGLE_SECRET_KEY", pre=False)
+    def validate_google_secret_key(cls, v: Optional[str], values: Dict[str, Any]) -> Optional[str]:
+        if not values.get("DEBUG") and values.get("GOOGLE_CLIENT_ID") and not v:
+            raise ValueError(
+                "GOOGLE_SECRET_KEY must be set in a production environment (when DEBUG=False) if GOOGLE_CLIENT_ID is set."
+            )
+        # No default for GOOGLE_SECRET_KEY in debug, as it's less critical for basic app runnability than JWT_SECRET_KEY
+        # and highly dependent on whether Google OAuth is actively being developed/tested.
+        return v
+
     # Email settings
     SMTP_TLS: bool = True
     SMTP_PORT: Optional[int] = None
     SMTP_HOST: Optional[str] = None
-    SMTP_USER: Optional[str] = None
+    SMTP_USER: Optional[str] = None  # Optional: Configure via env var if email sending is used.
     SMTP_PASSWORD: Optional[str] = None
     EMAILS_FROM_EMAIL: Optional[EmailStr] = None
     EMAILS_FROM_NAME: Optional[str] = None
