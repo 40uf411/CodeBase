@@ -13,8 +13,10 @@ class Settings(BaseSettings):
     PROJECT_VERSION: str = "1.0.0"
     PROJECT_TAGS: List[Dict[str, str]] = [
         {"name": "auth", "description": "Authentication and authorization"},
+        {"name": "privileges", "description": "Privilege management (fine-grained access rights)"},
+        {"name": "roles", "description": "Role management (user roles and associated permissions)"},
+        {"name": "samples", "description": "Sample resource management"},
         {"name": "users", "description": "User management"},
-        {"name": "items", "description": "Item management"},
     ]
     PROJECTS_TERMS_OF_SERVICE: str = "https://example.com/terms"
     PROJECTS_CONTACT: Dict[str, str] = {
