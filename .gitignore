@@ -1,0 +1,65 @@
+# fastapi python git ignore:
+
+# Python bytecode and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+
+# Database files
+*.db
+*.sqlite3
+
+# Logs and environment files
+*.log
+*.env
+*.env.*
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.egg
+*.egg-info/
+*.whl
+*.dist-info/
+build/
+dist/
+
+# Virtual environment directories
+venv/
+.venv/
+
+# Testing and coverage
+.coverage
+.tox/
+.mypy_cache/
+.pytest_cache/
+.cache/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.local
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# FastAPI-specific
+*.pid  # Process ID files
+*.lock  # Lock files
+
+# Dependency directories
+__pypackages__/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+*.orig
+
+# Ignore generated migrations (if applicable)
+migrations/  # Uncomment if using Alembic and want to ignore migrations
