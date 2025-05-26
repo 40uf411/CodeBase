@@ -163,6 +163,51 @@ The application features a comprehensive and configurable activity logging syste
 
 For detailed information on log format, storage, configuration, and key event types, please see [LOGGING.md](./LOGGING.md).
 
+## Containerization (Docker)
+
+### Building the Docker Image Locally
+To build the Docker image for this application locally, navigate to the project root directory (where the `Dockerfile` is located) and run:
+```bash
+docker build -t <your-image-name> .
+```
+Replace `<your-image-name>` with a name you want to give your image (e.g., `my-fastapi-app`).
+
+### Running the Docker Container Locally
+To run the built image as a container:
+```bash
+docker run -p 8000:8000 \
+  -e SQLALCHEMY_DATABASE_URI="postgresql://user:password@host:port/dbname" \
+  -e JWT_SECRET_KEY="your-super-secret-key" \
+  -e DEBUG="False" \
+  # Add other necessary environment variables as per your application's config.py
+  <your-image-name>
+```
+Make sure to:
+- Replace `<your-image-name>` with the name you used during the build.
+- Set appropriate values for `SQLALCHEMY_DATABASE_URI`, `JWT_SECRET_KEY`, and any other required environment variables. The application inside the container relies on these for its configuration.
+- The application will be accessible at `http://localhost:8000`.
+
+**Important:** The Docker image expects all necessary configurations (database URLs, secret keys, etc.) to be provided via environment variables at runtime. Refer to `core/config.py` for required variables. Do not hardcode sensitive information directly in the `Dockerfile` or commit it to version control.
+
+## CI Pipeline
+This project uses GitHub Actions for Continuous Integration (CI). The CI pipeline is defined in `.github/workflows/main.yml` and automates several quality checks and build processes.
+
+**Key Stages:**
+The pipeline typically includes the following stages:
+1.  **Lint & Format Check:** Ensures code style consistency using Flake8 and Black.
+2.  **Unit Tests:** Runs fast, isolated tests for individual components.
+3.  **Integration Tests:** Performs tests involving interactions between components, using service containers for PostgreSQL and Redis to simulate a live environment. Database migrations (Alembic) are applied before these tests.
+4.  **Security Scans:** Includes checks for potential security vulnerabilities in code (Bandit) and dependencies (pip-audit).
+5.  **Build Docker Image:** Builds a Docker container image of the application.
+6.  **Push Docker Image (Conditional):** On pushes to the `main` branch, the built Docker image is pushed to the GitHub Container Registry (GHCR).
+
+**Triggers:**
+The CI pipeline is automatically triggered on:
+- Pushes to the `main` branch.
+- Pull requests targeting the `main` branch.
+
+You can view the status and logs of CI runs in the "Actions" tab of the GitHub repository.
+
 ## Contributing
 
 If this were an open project, contributions would be welcome! Please follow these general guidelines:
