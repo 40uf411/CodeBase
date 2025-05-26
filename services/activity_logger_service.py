@@ -141,15 +141,15 @@ if __name__ == "__main__":
     # finally:
     #     db_session.close()
     pass
-        "user_email": "test@example.com",
-        "request_ip_address": "127.0.0.1",
-        "details": "This is a test log event from direct execution."
-    }
-    logger_service.log(test_event)
+    #     "user_email": "test@example.com",
+    #     "request_ip_address": "127.0.0.1",
+    #     "details": "This is a test log event from direct execution."
+    # }
+    # logger_service.log(test_event)
     
-    # Verify by checking the logs/activity.log file
-    print(f"Test log sent. Check {os.path.abspath('logs/activity.log')}")
+    # # Verify by checking the logs/activity.log file
+    # print(f"Test log sent. Check {os.path.abspath('logs/activity.log')}")
     
-    # Test with non-dict message to see basic formatting
-    # logger_service.logger.info("This is a simple string message, not a dict.")
-    # print(f"Test string log sent. Check {os.path.abspath('logs/activity.log')}")
+    # # Test with non-dict message to see basic formatting
+    # # logger_service.logger.info("This is a simple string message, not a dict.")
+    # # print(f"Test string log sent. Check {os.path.abspath('logs/activity.log')}")
