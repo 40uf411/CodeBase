@@ -98,45 +98,64 @@ class AuthService:
         refresh_token: Optional[str] = None,
         expires_at: Optional[str] = None,
     ) -> User:
-        acct = self.db.query(OAuthAccount).filter(
-            OAuthAccount.provider == provider,
-            OAuthAccount.provider_user_id == provider_user_id
-        ).first()
-        if acct:
-            # Assuming self.db.begin() is for synchronous session, if it's part of an async setup, needs adjustment
-            with self.db.begin(): 
-                if access_token:
-                    acct.access_token = access_token
-                if refresh_token:
-                    acct.refresh_token = refresh_token
-                if expires_at:
-                    acct.expires_at = expires_at
-            logger.info(f"Updated OAuthAccount {provider}:{provider_user_id}")
-            return acct.user
-        user = self.db.query(User).filter(User.email == email).first()
-        if not user:
-            user = User(
-                email=email,
-                hashed_password=None,
-                full_name=full_name,
-                is_active=True,
-                is_superuser=False,
+        try:
+            # Check if OAuth account already exists
+            acct = self.db.query(OAuthAccount).filter(
+                OAuthAccount.provider == provider,
+                OAuthAccount.provider_user_id == provider_user_id
+            ).first()
+
+            if acct:
+                # Update existing OAuth account tokens if new ones are provided
+                if access_token: acct.access_token = access_token
+                if refresh_token: acct.refresh_token = refresh_token
+                if expires_at: acct.expires_at = expires_at
+                # self.db.add(acct) # Not strictly necessary if already in session and modified
+                self.db.commit() # Commit changes to existing OAuth account
+                self.db.refresh(acct)
+                logger.info(f"Updated OAuthAccount {provider}:{provider_user_id}")
+                return acct.user # Return associated user
+
+            # OAuth account does not exist, try to find user by email
+            user = self.db.query(User).filter(User.email == email).first()
+            if not user:
+                # Create new user if not found
+                user = User(
+                    email=email,
+                    hashed_password=None, # OAuth users might not have a local password initially
+                    full_name=full_name,
+                    is_active=True,
+                    is_superuser=False,
+                )
+                self.db.add(user)
+                # We need user.id for OAuthAccount, flush to get it before creating OAuthAccount
+                self.db.flush() 
+                logger.info(f"Created new user {email} for OAuth.")
+            
+            # Create new OAuthAccount and link to user
+            new_acct = OAuthAccount(
+                provider=provider,
+                provider_user_id=provider_user_id,
+                access_token=access_token,
+                refresh_token=refresh_token,
+                expires_at=expires_at,
+                user_id=user.id  # Link to existing or newly created user
             )
-            self.db.add(user)
-            self.db.flush() # Sync call
-            logger.info(f"Created OAuth user {email}")
-        acct = OAuthAccount(
-            provider=provider,
-            provider_user_id=provider_user_id,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            expires_at=expires_at,
-            user_id=user.id
-        )
-        self.db.add(acct)
-        self.db.commit() # Sync call
-        logger.info(f"Linked OAuthAccount {provider}:{provider_user_id} to user {user.id}")
-        return user
+            self.db.add(new_acct)
+            self.db.commit() # Commit new user (if any) and new OAuth account
+            self.db.refresh(user)
+            if new_acct in self.db: self.db.refresh(new_acct) # Check if new_acct is in session before refreshing
+            logger.info(f"Linked OAuthAccount {provider}:{provider_user_id} to user {user.id}")
+            return user
+        except IntegrityError as e: # Catch potential unique constraint violations, etc.
+            self.db.rollback()
+            logger.error(f"IntegrityError in get_or_create_oauth_user: {e}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAuth user processing failed due to data conflict.")
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Exception in get_or_create_oauth_user: {e}")
+            # Consider raising a more generic error or re-raising specific non-HTTPException
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred during OAuth user processing.")
 
     def create_tokens(self, user_id: UUID) -> Dict[str, str]:
         access_expires = timedelta(minutes=settings.JWT_EXPIRATION)
@@ -193,11 +212,24 @@ class AuthService:
         if existing:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="OAuth account already linked")
-        acct = OAuthAccount(**oauth_in.dict())
-        acct.user_id = user_id
-        self.db.add(acct)
-        self.db.commit() # Sync call
-        return acct
+        acct_model = OAuthAccount(**oauth_in.dict())
+        acct_model.user_id = user_id
+        self.db.add(acct_model)
+        try:
+            self.db.commit()
+            self.db.refresh(acct_model)
+            return acct_model
+        except IntegrityError as e:
+            self.db.rollback()
+            logger.error(f"Failed to link OAuth account due to integrity error: {e}")
+            # Check if it's a duplicate linking attempt that wasn't caught by the initial check
+            # This specific error might indicate a race condition or a subtle bug if the initial check passed.
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="OAuth account could not be linked, possibly already exists or data conflict.")
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Unexpected error linking OAuth account: {e}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not link OAuth account due to an unexpected error.")
+
 
     async def unlink_oauth_account(self, user_id: UUID, provider: str) -> None: # Made async
         acct = self.db.query(OAuthAccount).filter(
@@ -208,4 +240,9 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail="OAuth account not found")
         self.db.delete(acct) # Sync call
-        self.db.commit() # Sync call
+        try:
+            self.db.commit() # Sync call
+        except Exception as e: # Catch potential errors during commit, though less common for delete
+            self.db.rollback()
+            logger.error(f"Error unlinking OAuth account: {e}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not unlink OAuth account due to an unexpected error.")

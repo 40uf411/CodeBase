@@ -21,10 +21,27 @@ class AdminLoggingSettingService:
         Updates a single logging setting.
         Returns a dictionary of the updated setting or None if not found.
         """
-        updated_setting = self.repository.update_setting(name, is_enabled)
-        if updated_setting:
-            return {updated_setting.setting_name: updated_setting.is_enabled}
-        return None
+        # Repository method update_setting no longer commits. Service must commit.
+        # It also returns Optional[AdminLoggingSetting] from the repo.
+        try:
+            updated_setting_obj = self.repository.update_setting(name, is_enabled) # This gets from repo, which returns Optional[model]
+            if not updated_setting_obj:
+                # This means the setting was not found by the repository's get_by_name
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Logging setting '{name}' not found.")
+            
+            # updated_setting_obj now holds the model instance with is_enabled potentially changed by repo.update_setting
+            # The repo.update_setting method itself does not commit.
+            self.db.commit()
+            self.db.refresh(updated_setting_obj) # Ensure state is fresh from DB after commit
+            return updated_setting_obj # Return the ORM object
+        except HTTPException: # Re-raise HTTPException specifically if we want to keep its status/detail
+            raise
+        except Exception as e: # Catch other potential errors during commit etc.
+            self.db.rollback()
+            # Optionally log the exception e
+            # Consider raising a service-specific exception or re-raising a generic 500
+            # For now, re-raising the original error to be handled by FastAPI error handlers or middleware
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An error occurred while updating setting '{name}'.")
 
     def initialize_default_settings(self):
         """
@@ -61,9 +78,22 @@ class AdminLoggingSettingService:
         
         # This uses the repository's method that handles both creation of new settings
         # and updates to existing ones (e.g., if a description changed).
+        # Repository method create_or_update_bulk no longer commits. Service must commit.
         # For settings not in default_settings_data but in DB, they will be untouched.
-        self.repository.create_or_update_bulk(default_settings_data)
-        # print(f"Default logging settings initialized/verified. {len(default_settings_data)} settings processed.")
+        try:
+            # The repository method stages all changes (adds new, updates existing in session)
+            updated_or_created_settings = self.repository.create_or_update_bulk(default_settings_data)
+            self.db.commit()
+            # Refresh objects if needed (repo method already does this for new/dirty items before returning)
+            # for setting in updated_or_created_settings:
+            #     if setting in self.db: # Ensure they are persistent or part of session
+            #         self.db.refresh(setting)
+            # print(f"Default logging settings initialized/verified. {len(default_settings_data)} settings processed.")
+        except Exception as e:
+            self.db.rollback()
+            # Optionally log the exception e
+            # print(f"Error initializing default settings: {e}")
+            raise # Re-raise for now, or handle more gracefully
 
 # Example of how this service might be instantiated and used (for testing or in main.py)
 if __name__ == "__main__":

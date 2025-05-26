@@ -19,14 +19,14 @@ class AdminLoggingSettingRepository(BaseRepository[AdminLoggingSetting]):
         setting = self.get_by_name(name)
         if setting:
             setting.is_enabled = is_enabled
-            try:
-                self.db.commit()
-                self.db.refresh(setting)
-                return setting
-            except SQLAlchemyError as e:
-                self.db.rollback()
-                # Optionally log the error e
-                raise e
+            # try: # Removed try/except for commit/rollback
+            #     self.db.commit()
+            self.db.refresh(setting) # Keep refresh
+            return setting
+            # except SQLAlchemyError as e:
+            #     self.db.rollback()
+            #     # Optionally log the error e
+            #     raise e
         return None
 
     def create_or_update_bulk(self, settings_data: List[Dict[str, Any]]) -> List[AdminLoggingSetting]:
@@ -64,21 +64,21 @@ class AdminLoggingSettingRepository(BaseRepository[AdminLoggingSetting]):
                 updated_settings.append(new_setting)
                 created_settings_count += 1
         
-        try:
-            if created_settings_count > 0 or updated_settings_count > 0:
-                self.db.commit()
-                for setting in updated_settings:
-                    if setting in self.db.dirty or setting in self.db.new: # Only refresh if part of current transaction changes
-                         self.db.refresh(setting) # Refresh to get DB defaults like created_at, updated_at
-            # For settings that were neither created nor updated but just fetched and added to updated_settings list
-            # they don't need refreshing if they weren't modified.
-            
-            # print(f"Bulk operation: {created_settings_count} created, {updated_settings_count} updated.")
-        except SQLAlchemyError as e:
-            self.db.rollback()
-            # Optionally log the error e
-            # print(f"Error in bulk create/update: {e}")
-            raise e
+        # try: # Removed try/except for commit/rollback
+        if created_settings_count > 0 or updated_settings_count > 0:
+            # self.db.commit() # Removed commit
+            for setting in updated_settings:
+                if setting in self.db.dirty or setting in self.db.new: # Only refresh if part of current transaction changes
+                     self.db.refresh(setting) # Refresh to get DB defaults like created_at, updated_at
+        # For settings that were neither created nor updated but just fetched and added to updated_settings list
+        # they don't need refreshing if they weren't modified.
+        
+        # print(f"Bulk operation: {created_settings_count} created, {updated_settings_count} updated.")
+        # except SQLAlchemyError as e:
+        #     self.db.rollback()
+        #     # Optionally log the error e
+        #     # print(f"Error in bulk create/update: {e}")
+        #     raise e
             
         return updated_settings
 
@@ -107,10 +107,10 @@ class AdminLoggingSettingRepository(BaseRepository[AdminLoggingSetting]):
         setting = self.get(id)
         if setting:
             self.db.delete(setting)
-            try:
-                self.db.commit()
-                return setting # No refresh needed as it's deleted
-            except SQLAlchemyError as e:
-                self.db.rollback()
-                raise e
+            # try: # Removed try/except for commit/rollback
+            #     self.db.commit()
+            return setting # No refresh needed as it's deleted
+            # except SQLAlchemyError as e:
+            #     self.db.rollback()
+            #     raise e
         return None

@@ -82,3 +82,7 @@ class SampleService:
             deleted = self.repo.delete(sample_id, hard_delete) # Sync call
         logger.info(f"Deleted sample {sample_id} (hard={hard_delete})") # Standard logger, not activity log here
         return deleted
+
+# Dependency provider function
+def get_sample_service(db: Session = Depends(get_db)) -> SampleService:
+    return SampleService(db)

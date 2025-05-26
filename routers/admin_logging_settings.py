@@ -48,25 +48,17 @@ async def update_logging_setting(
     setting_update: LoggingSettingUpdate,
     service: AdminLoggingSettingService = Depends(get_admin_logging_setting_service)
 ):
-    # The service's update_setting expects name and is_enabled
-    # It returns Dict[str, bool] or None.
-    # We need to fetch the full object for LoggingSettingResponse
+    # The service's update_setting method now:
+    # 1. Calls the repository's update_setting (which finds by name).
+    # 2. If not found by repo, the service raises HTTPException(404).
+    # 3. Commits and refreshes the ORM object.
+    # 4. Returns the updated ORM object.
+    # Thus, the router can directly call it and return the result.
+    # Any exceptions (404 from service, 500 from service) will be propagated.
     
-    original_setting = service.repository.get_by_name(setting_name)
-    if not original_setting:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Logging setting '{setting_name}' not found.")
-
-    updated_setting_dict = service.update_setting(setting_name, setting_update.is_enabled)
-    
-    if updated_setting_dict is None: # Should not happen if original_setting was found, but as a safeguard
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update logging setting.")
-
-    # Fetch the updated object to return in the defined response model
-    # The service update_setting returns only a dict, so we refetch or adjust service.
-    # For now, refetch:
-    updated_db_setting = service.repository.get_by_name(setting_name)
-    if not updated_db_setting:
-         # This case should ideally not be reached if update was successful
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve setting post-update.")
-        
-    return updated_db_setting
+    updated_setting_orm_obj = service.update_setting(setting_name, setting_update.is_enabled)
+    # If service.update_setting completes without raising an exception,
+    # updated_setting_orm_obj is the AdminLoggingSetting ORM model instance.
+    # This matches the response_model=LoggingSettingResponse which expects an ORM object
+    # or a dict that can be parsed into it (Pydantic's orm_mode=True).
+    return updated_setting_orm_obj
