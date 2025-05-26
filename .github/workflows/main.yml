@@ -1,0 +1,218 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: '3.9' # Define Python version to use
+  # PostgreSQL Test DB Config - used by 'services' and for app config in test job
+  POSTGRES_USER: testuser
+  POSTGRES_PASSWORD: testpassword
+  POSTGRES_DB: testdb
+  # Redis Test Config
+  REDIS_PORT: 6379 # Default Redis port
+
+jobs:
+  lint_and_format:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install black flake8 # Assuming these are in requirements-dev.txt or install explicitly
+
+      - name: Run Flake8
+        run: flake8 .
+
+      - name: Run Black (check mode)
+        run: black --check .
+
+  unit_tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint_and_format # Depends on linting passing
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Unit Tests
+        run: python -m unittest discover tests/unit
+
+  integration_tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: lint_and_format # Depends on linting passing
+    # Service containers to run with the job
+    services:
+      postgres:
+        image: postgres:15 # Using a specific version
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        ports:
+          - 5432:5432 # Map to host runner if needed, though service name 'postgres' works directly
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7 # Using a specific version
+        ports:
+          - ${{ env.REDIS_PORT }}:${{ env.REDIS_PORT }}
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            
+      - name: Install dependencies (including psycopg2-binary or similar for DB client)
+        run: |
+          pip install -r requirements.txt 
+          # Ensure Alembic is installed if not in requirements.txt
+          # pip install alembic psycopg2-binary
+
+      - name: Wait for PostgreSQL to be healthy
+        run: |
+          until pg_isready -h postgres -U $POSTGRES_USER -d $POSTGRES_DB; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+        env:
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }} # pg_isready might need PGPASSWORD
+
+      - name: Wait for Redis to be healthy
+        run: |
+          until redis-cli -h redis -p ${{ env.REDIS_PORT }} ping; do
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+
+      - name: Run Alembic Migrations
+        env:
+          # These need to be available for the app/alembic to connect to the DB
+          DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@postgres:5432/${{ env.POSTGRES_DB }}
+          # For Alembic specifically, it might read from its own config or other app settings
+          # Ensure your config.py or alembic's env.py can pick up these details for the test DB
+          # Or override SQLALCHEMY_DATABASE_URI directly if your app uses that
+          SQLALCHEMY_DATABASE_URI: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@postgres:5432/${{ env.POSTGRES_DB }}
+          # Settings for Dragonfly/Redis connection
+          DRAGONFLY_HOST: redis # Service name for Redis
+          DRAGONFLY_PORT: ${{ env.REDIS_PORT }}
+          DEBUG: "False" # Or "True" depending on test needs
+          JWT_SECRET_KEY: "test_jwt_secret_key_ci" # Dummy secret for CI
+        run: alembic upgrade head
+
+      - name: Run Integration Tests
+        env:
+          # Same ENVs as for Alembic migrations, so tests connect to service containers
+          SQLALCHEMY_DATABASE_URI: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@postgres:5432/${{ env.POSTGRES_DB }}
+          DRAGONFLY_HOST: redis
+          DRAGONFLY_PORT: ${{ env.REDIS_PORT }}
+          DEBUG: "False"
+          JWT_SECRET_KEY: "test_jwt_secret_key_ci"
+          # Ensure other required env vars for your app are set
+        run: python -m unittest discover tests/integration
+
+  # Optional Security Scans (can be a separate job or steps in lint_and_test)
+  security_scans:
+    name: Security Scans
+    runs-on: ubuntu-latest
+    needs: [lint_and_format] # Or run in parallel if preferred
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies (including Bandit and pip-audit)
+        run: |
+          pip install -r requirements.txt 
+          # Assuming bandit and pip-audit are in requirements-dev.txt or install here
+          pip install bandit pip-audit
+
+      - name: Run Bandit
+        run: bandit -r . -ll -ii --skip B101 # Skip assert_used, common in tests
+
+      - name: Run pip-audit
+        run: pip-audit
+
+  build_docker_image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    # Depends on all tests and scans passing
+    needs: [unit_tests, integration_tests, security_scans]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry (GHCR)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' # Only login when pushing to main
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          dockerfile: Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }} # Push only on main branch
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.sha }}
+          # For pull requests, this will just build the image (push: false)

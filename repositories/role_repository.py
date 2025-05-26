@@ -1,11 +1,11 @@
 from typing import Optional, List
 from uuid import UUID
-from fastapi import Depends
+# from fastapi import Depends # Removed Depends
 from sqlalchemy.orm import Session
 
 from .base_repository import BaseRepository
 from models.role import Role
-from core.database import get_db
+# from core.database import get_db # Removed get_db
 
 
 class RoleRepository(BaseRepository[Role]):
@@ -13,7 +13,7 @@ class RoleRepository(BaseRepository[Role]):
     Repository for Role model operations.
     """
     
-    def __init__(self, db: Session = Depends(get_db)):
+    def __init__(self, db: Session): # Removed Depends(get_db)
         super().__init__(Role, db)
     
     def get_by_name(self, name: str) -> Optional[Role]:
@@ -51,3 +51,10 @@ class RoleRepository(BaseRepository[Role]):
             query = query.filter(Role.id != exclude_id)
         
         return query.first() is not None
+
+# Dependency provider function
+from fastapi import Depends # Added
+from core.database import get_db # Added
+
+def get_role_repository(db: Session = Depends(get_db)) -> RoleRepository:
+    return RoleRepository(db)

@@ -1,9 +1,10 @@
 import logging
 from typing import List, Dict
 from uuid import UUID
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request # Added Request
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from utils.activity_logging_decorators import log_activity # Added decorator
 
 from core.database import get_db
 from repositories.sample_repository import SampleRepository
@@ -20,10 +21,12 @@ class SampleService:
     def __init__(self, db: Session = Depends(get_db)):
         self.db = db
         self.repo = SampleRepository(db)
-        self.priv_svc = PrivilegeService(db)
+        self.priv_svc = PrivilegeService(db) # Assuming this is synchronous for now
 
-    def get_sample(self, sample_id: UUID) -> Sample:
-        sam = self.repo.get(sample_id)
+    async def get_sample(self, sample_id: UUID, request: Request = None) -> Sample: # Made async, added request
+        # This method is not specified for decoration, but making it async for consistency if other methods call it.
+        # The request param is added for potential future decoration or use by called decorated methods.
+        sam = self.repo.get(sample_id) # Sync call
         if not sam:
             logger.warning(f"Sample not found: {sample_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -41,37 +44,45 @@ class SampleService:
             logger.error(f"Invalid priority: {priority}")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="Priority must be between 1 and 5")
-        return self.repo.get_by_priority(priority, skip=skip, limit=limit)
+        return self.repo.get_by_priority(priority, skip=skip, limit=limit) # Sync call
 
-    def create_sample(self, sample_in: SampleCreate) -> Sample:
+    @log_activity(success_event_type="SAMPLE_CREATE_SUCCESS", failure_event_type="SAMPLE_CREATE_FAILURE")
+    async def create_sample(self, sample_in: SampleCreate, request: Request = None) -> Sample: # Made async, added request
         try:
-            with self.db.begin():
-                sam = self.repo.create(sample_in.dict())
+            # Synchronous DB operations within the async method
+            with self.db.begin(): # Sync context manager
+                sam = self.repo.create(sample_in.dict()) # Sync call
                 # create CRUD privileges for this entity
-                self.priv_svc.create_crud_privileges("sample")
-            logger.info(f"Created sample {sam.id} with name '{sam.name}'")
+                self.priv_svc.create_crud_privileges("sample") # Sync call
+            # logger.info(f"Created sample {sam.id} with name '{sam.name}'") # Logging now handled by decorator
             return sam
         except IntegrityError as e:
-            logger.error(f"Integrity error creating sample: {e}")
+            # logger.error(f"Integrity error creating sample: {e}") # Logging now handled by decorator on failure
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="Sample with this name already exists")
 
-    def update_sample(self, sample_id: UUID, sample_in: SampleUpdate) -> Sample:
-        sam = self.get_sample(sample_id)
+    @log_activity(success_event_type="SAMPLE_UPDATE_SUCCESS", failure_event_type="SAMPLE_UPDATE_FAILURE")
+    async def update_sample(self, sample_id: UUID, sample_in: SampleUpdate, request: Request = None) -> Sample: # Made async, added request
+        sam = await self.get_sample(sample_id, request=request) # Now async, ensure it's awaited if it becomes truly async
         data = sample_in.dict(exclude_unset=True)
         if 'name' in data and data['name'] != sam.name:
-            if self.repo.name_exists(data['name'], exclude_id=sample_id):
-                logger.error(f"Duplicate sample name on update: {data['name']}")
+            if self.repo.name_exists(data['name'], exclude_id=sample_id): # Sync call
+                # logger.error(f"Duplicate sample name on update: {data['name']}") # Logging by decorator
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                     detail="Sample with this name already exists")
-        with self.db.begin():
-            updated = self.repo.update(sample_id, data)
-        logger.info(f"Updated sample {sample_id}")
+        with self.db.begin(): # Sync context manager
+            updated = self.repo.update(sample_id, data) # Sync call
+        # logger.info(f"Updated sample {sample_id}") # Logging by decorator
         return updated
 
-    def delete_sample(self, sample_id: UUID, hard_delete: bool = False) -> Sample:
-        sam = self.get_sample(sample_id)
-        with self.db.begin():
-            deleted = self.repo.delete(sample_id, hard_delete)
-        logger.info(f"Deleted sample {sample_id} (hard={hard_delete})")
+    async def delete_sample(self, sample_id: UUID, hard_delete: bool = False, request: Request = None) -> Sample: # Made async, added request
+        # This method is not specified for decoration in this PoC
+        sam = await self.get_sample(sample_id, request=request) # Now async
+        with self.db.begin(): # Sync context manager
+            deleted = self.repo.delete(sample_id, hard_delete) # Sync call
+        logger.info(f"Deleted sample {sample_id} (hard={hard_delete})") # Standard logger, not activity log here
         return deleted
+
+# Dependency provider function
+def get_sample_service(db: Session = Depends(get_db)) -> SampleService:
+    return SampleService(db)

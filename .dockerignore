@@ -1,0 +1,21 @@
+# .dockerignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+*.db
+*.db-journal
+logs/
+.git/
+.gitignore
+.vscode/
+.idea/
+tests/
+*.pytest_cache/
+.mypy_cache/
+htmlcov/
+*.egg-info/

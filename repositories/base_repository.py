@@ -1,9 +1,9 @@
 from typing import Generic, TypeVar, List, Optional, Dict, Any, Type
 from uuid import UUID
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status 
 from sqlalchemy.orm import Session
 
-from core.database import get_db
+from core.exceptions import EntityNotFoundError # Added
 from models.base import BaseModel
 
 # Type variable for generic repository
@@ -15,7 +15,7 @@ class BaseRepository(Generic[T]):
     Base repository with generic CRUD operations.
     """
     
-    def __init__(self, model: Type[T], db: Session = Depends(get_db)):
+    def __init__(self, model: Type[T], db: Session): # Removed Depends(get_db)
         self.model = model
         self.db = db
     
@@ -61,11 +61,11 @@ class BaseRepository(Generic[T]):
         """
         db_obj = self.model(**obj_in)
         self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
+        # self.db.commit() # Removed commit
+        self.db.refresh(db_obj) # Keep refresh for ID/defaults
         return db_obj
     
-    def update(self, id: UUID, obj_in: Dict[str, Any]) -> T:
+    def update(self, id: UUID, obj_in: Dict[str, Any]) -> Optional[T]: # Changed return type
         """
         Update a record.
         
@@ -74,14 +74,11 @@ class BaseRepository(Generic[T]):
             obj_in: Record update data
             
         Returns:
-            Updated record
+            Updated record or None if not found.
         """
-        db_obj = self.get(id)
+        db_obj = self.get(id) # get() already returns Optional[T]
         if not db_obj:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"{self.model.__name__} not found",
-            )
+            return None # Return None if entity not found
         
         # Update fields
         for field, value in obj_in.items():
@@ -89,11 +86,11 @@ class BaseRepository(Generic[T]):
                 setattr(db_obj, field, value)
         
         self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
+        # self.db.commit() # Removed commit
+        self.db.refresh(db_obj) # Keep refresh
         return db_obj
     
-    def delete(self, id: UUID, hard_delete: bool = False) -> T:
+    def delete(self, id: UUID, hard_delete: bool = False) -> Optional[T]: # Changed return type
         """
         Delete a record.
         
@@ -102,14 +99,11 @@ class BaseRepository(Generic[T]):
             hard_delete: Whether to permanently delete the record
             
         Returns:
-            Deleted record
+            Deleted record or None if not found.
         """
-        db_obj = self.get(id)
+        db_obj = self.get(id) # get() already returns Optional[T]
         if not db_obj:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"{self.model.__name__} not found",
-            )
+            return None # Return None if entity not found
         
         if hard_delete:
             self.db.delete(db_obj)
@@ -117,7 +111,10 @@ class BaseRepository(Generic[T]):
             db_obj.soft_delete()
             self.db.add(db_obj)
         
-        self.db.commit()
+        # self.db.commit() # Removed commit
+        # For soft delete, the object `db_obj` is already updated in memory.
+        # Refresh after commit is the service's responsibility if it needs a fully updated state from DB.
+        # For hard delete, the object is gone from session after commit.
         return db_obj
     
     def count(self) -> int:

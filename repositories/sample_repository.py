@@ -1,11 +1,11 @@
 from typing import List, Dict, Any, Optional
 from uuid import UUID
-from fastapi import Depends
+# from fastapi import Depends # Removed Depends
 from sqlalchemy.orm import Session
 
 from .base_repository import BaseRepository
 from models.sample import Sample
-from core.database import get_db
+# from core.database import get_db # Removed get_db
 
 
 class SampleRepository(BaseRepository[Sample]):
@@ -13,7 +13,7 @@ class SampleRepository(BaseRepository[Sample]):
     Repository for Sample model operations.
     """
     
-    def __init__(self, db: Session = Depends(get_db)):
+    def __init__(self, db: Session): # Removed Depends(get_db)
         super().__init__(Sample, db)
     
     def get_by_name(self, name: str) -> Optional[Sample]:

@@ -1,13 +1,13 @@
 from typing import List, Dict, Any, Optional
 from uuid import UUID
-from fastapi import Depends
+# from fastapi import Depends # Removed Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
 from .base_repository import BaseRepository
 from models.privilege import Privilege
 from models.role import Role
-from core.database import get_db
+# from core.database import get_db # Removed get_db
 
 
 class PrivilegeRepository(BaseRepository[Privilege]):
@@ -15,7 +15,7 @@ class PrivilegeRepository(BaseRepository[Privilege]):
     Repository for Privilege model operations.
     """
     
-    def __init__(self, db: Session = Depends(get_db)):
+    def __init__(self, db: Session): # Removed Depends(get_db)
         super().__init__(Privilege, db)
     
     def get_by_name(self, name: str) -> Optional[Privilege]:
@@ -130,8 +130,8 @@ class PrivilegeRepository(BaseRepository[Privilege]):
                 )
                 
                 self.db.add(privilege)
-                self.db.commit()
-                self.db.refresh(privilege)
+                # self.db.commit() # Removed commit from loop
+                self.db.refresh(privilege) # Keep refresh to get ID/defaults for each object
                 
                 created_privileges.append(privilege)
             else:

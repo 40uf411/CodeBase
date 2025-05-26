@@ -30,6 +30,7 @@ import models.role
 import models.privilege
 import models.sample
 import models.oauth_account
+import models.admin_logging_setting # Added for the new model
 # …if you have any other files under `models/`, import them here as well
 
 # 5) Tell Alembic about your metadata
