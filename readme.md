@@ -158,6 +158,11 @@ pytest tests/
 *   `.env.example`: Example environment file (though not explicitly present, this is a good practice to add).
 *   `readme.md`: This file.
 
+## Activity Logging
+The application features a comprehensive and configurable activity logging system that records detailed information about user actions, system events, and errors. This is crucial for security auditing, troubleshooting, and monitoring platform activity.
+
+For detailed information on log format, storage, configuration, and key event types, please see [LOGGING.md](./LOGGING.md).
+
 ## Contributing
 
 If this were an open project, contributions would be welcome! Please follow these general guidelines:

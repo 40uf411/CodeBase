@@ -1,9 +1,10 @@
 from typing import List
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query, Path, status
+from fastapi import APIRouter, Depends, Query, Path, status, Request # Added Request
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from utils.activity_logging_decorators import log_activity # Added
 from core.auth import require_privileges
 from services.sample_service import SampleService
 from services.privilege_service import PrivilegeService
@@ -22,13 +23,17 @@ router = APIRouter(
     dependencies=[ require_privileges("sample:create") ],
     summary="Create a new sample"
 )
+@log_activity(success_event_type="SAMPLE_CREATE_VIA_API_SUCCESS", failure_event_type="SAMPLE_CREATE_VIA_API_FAILURE")
 async def create_sample(
     sample_in: SampleCreate,
+    request: Request, # Added request
     db: Session = Depends(get_db),
 ):
-    sample = SampleService(db).create_sample(sample_in)
+    sample_service = SampleService(db)
+    # SampleService.create_sample is now async and expects request
+    sample = await sample_service.create_sample(sample_in, request=request)
     # ensure CRUD privileges exist
-    PrivilegeService(db).create_crud_privileges("sample")
+    # PrivilegeService(db).create_crud_privileges("sample") # This might also be a candidate for logging if made async
     return sample
 
 @router.get(
@@ -73,11 +78,13 @@ async def list_samples_by_priority(
     response_model=SampleResponse,
     summary="Get a sample"
 )
-async def get_sample(
+async def get_sample( # Renamed from get_sample to avoid conflict with service method name if we were to use it directly
     sample_id: UUID,
+    request: Request, # Added request, though not decorating this endpoint in PoC
     db: Session = Depends(get_db),
 ):
-    return SampleService(db).get_sample(sample_id)
+    # SampleService.get_sample is now async and expects request
+    return await SampleService(db).get_sample(sample_id, request=request)
 
 @router.put(
     "/{sample_id}",
@@ -85,12 +92,15 @@ async def get_sample(
     dependencies=[ require_privileges("sample:update") ],
     summary="Update a sample"
 )
-async def update_sample(
+@log_activity(success_event_type="SAMPLE_UPDATE_VIA_API_SUCCESS", failure_event_type="SAMPLE_UPDATE_VIA_API_FAILURE")
+async def update_sample( # Renamed from update_sample
     sample_id: UUID,
     sample_in: SampleUpdate,
+    request: Request, # Added request
     db: Session = Depends(get_db),
 ):
-    return SampleService(db).update_sample(sample_id, sample_in)
+    # SampleService.update_sample is now async and expects request
+    return await SampleService(db).update_sample(sample_id, sample_in, request=request)
 
 @router.delete(
     "/{sample_id}",
@@ -98,9 +108,11 @@ async def update_sample(
     dependencies=[ require_privileges("sample:delete") ],
     summary="Delete a sample"
 )
-async def delete_sample(
+async def delete_sample( # Renamed from delete_sample
     sample_id: UUID,
+    request: Request, # Added request, though not decorating this endpoint in PoC
     hard_delete: bool = Query(False, description="Permanently delete the sample"),
     db: Session = Depends(get_db),
 ):
-    return SampleService(db).delete_sample(sample_id, hard_delete)
+    # SampleService.delete_sample is now async and expects request
+    return await SampleService(db).delete_sample(sample_id, hard_delete, request=request)

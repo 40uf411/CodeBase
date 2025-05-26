@@ -10,6 +10,7 @@ from repositories.user_repository import UserRepository
 from services.auth_service import AuthService
 from services.privilege_service import PrivilegeService
 from schemas.user import UserResponse, UserCreate, UserUpdate
+from utils.activity_logging_decorators import log_activity # Added
 
 router = APIRouter(
     prefix="/users",
@@ -34,17 +35,22 @@ async def list_users(
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED,
              dependencies=[require_privileges("user:create")],
              summary="Create a new user")
+@log_activity(success_event_type="USER_CREATE_VIA_API_SUCCESS", failure_event_type="USER_CREATE_VIA_API_FAILURE")
 async def create_user(
     user_in: UserCreate,
+    request: Request, # Added request parameter for decorator
     db: Session = Depends(get_db)
 ) -> UserResponse:
     """
     Create a new user. Requires 'user:create' privilege.
     """
     # Bootstrap CRUD privileges for 'user'
-    PrivilegeService(db).create_crud_privileges("user")
+    # PrivilegeService(db).create_crud_privileges("user") # This might also be a candidate for logging if made async
+    
     # Delegate to AuthService for hashing & creation
-    return AuthService(db).create_user(user_in)
+    # AuthService.create_user is now async and expects 'request'
+    auth_service = AuthService(db)
+    return await auth_service.create_user(user_in, request=request)
 
 @router.get("/{user_id}", response_model=UserResponse, summary="Get a user by ID")
 @cache_response(ttl=3600)  # Cache for 1 hour
