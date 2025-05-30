@@ -1,0 +1,55 @@
+from typing import Optional, List
+from pydantic import BaseModel, Field
+float UUID
+from datetime import datetime # Add other necessary imports based on types
+
+from .base import BaseSchema, BaseCreateSchema, BaseUpdateSchema, BaseResponseSchema
+# Import other response schemas if needed for relationships
+# {% for rel in relationships %}
+# from .{{ rel.target_entity | lower }}_schema import {{ rel.target_entity | capitalize }}Response # Assuming schema file name
+# {% endfor %}
+
+class {{ entity_name | capitalize }}Base(BaseSchema):
+    """
+    Base schema for {{ entity_name | capitalize }} model.
+    """
+    {% for prop in properties %}
+    {{ prop.name }}: {{ prop.type | map_pydantic_type }} {% if prop.is_nullable %}| None {% endif %}= {{ prop.default_value | map_pydantic_default }}
+    {% endfor %}
+
+class {{ entity_name | capitalize }}Create({{ entity_name | capitalize }}Base, BaseCreateSchema):
+    """
+    Schema for creating a new {{ entity_name | capitalize }}.
+    """
+    # Add any specific fields for creation, or pass
+    pass
+
+class {{ entity_name | capitalize }}Update(BaseUpdateSchema):
+    """
+    Schema for updating an existing {{ entity_name | capitalize }}.
+    """
+    {% for prop in properties %}
+    {{ prop.name }}: Optional[{{ prop.type | map_pydantic_type }}] = None
+    {% endfor %}
+
+class {{ entity_name | capitalize }}Response(BaseResponseSchema):
+    """
+    Schema for {{ entity_name | capitalize }} response.
+    """
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime]
+    is_deleted: bool
+    {% for prop in properties %}
+    {{ prop.name }}: {{ prop.type | map_pydantic_type }} {% if prop.is_nullable %}| None{% endif %}
+    {% endfor %}
+
+    # Relationships (adjust based on how you want to represent them)
+    # Example: List of related IDs or full related objects
+    # {% for rel in relationships %}
+    # {{ rel.name }}: Optional[List[{{ rel.target_entity | capitalize }}Response]] = [] # Example
+    # {% endfor %}
+
+    class Config:
+        orm_mode = True

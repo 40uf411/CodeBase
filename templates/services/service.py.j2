@@ -1,0 +1,62 @@
+from uuid import UUID
+from typing import List, Optional # Added List and Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends, Request # Added Request
+
+from core.database import get_async_db
+from core.exceptions import EntityNotFoundError, DuplicateEntityError # Add other custom exceptions
+from models.{{ entity_name | lower }} import {{ entity_name | capitalize }}
+from schemas.{{ entity_name | lower }}_schema import {{ entity_name | capitalize }}Create, {{ entity_name | capitalize }}Update
+from repositories.{{ entity_name | lower }}_repository import {{ entity_name | capitalize }}Repository
+# Import other repositories if needed for relationships
+
+class {{ entity_name | capitalize }}Service:
+    def __init__(self, db_session: AsyncSession):
+        self.db_session = db_session
+        self.repository = {{ entity_name | capitalize }}Repository(db_session)
+        # Initialize other repositories here if needed
+        # self.privilege_service = PrivilegeService(db_session) # If managing privileges here
+
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[{{ entity_name | capitalize }}]:
+        return await self.repository.get_all(skip=skip, limit=limit)
+
+    async def get_by_id(self, item_id: UUID) -> Optional[{{ entity_name | capitalize }}]:
+        return await self.repository.get(item_id)
+
+    async def create(self, item_in: {{ entity_name | capitalize }}Create, request: Optional[Request] = None) -> {{ entity_name | capitalize }}:
+        # Potentially check for duplicate entries based on unique fields
+
+        # existing_item = await self.repository.get_by_field(item_in.unique_field)
+        # if existing_item:
+        #     raise DuplicateEntityError(entity_name="{{ entity_name | capitalize }}", conflicting_field="unique_field")
+
+        # Create privileges for the new entity type if not exists (usually done once)
+        # await self.privilege_service.create_crud_privileges("{{ entity_name | lower }}")
+
+        new_item = await self.repository.create(item_in.dict())
+        # Add any post-creation logic here (e.g., logging, notifications)
+        return new_item
+
+    async def update(self, item_id: UUID, item_in: {{ entity_name | capitalize }}Update, request: Optional[Request] = None) -> Optional[{{ entity_name | capitalize }}]:
+        existing_item = await self.repository.get(item_id)
+        if not existing_item:
+            return None # Or raise EntityNotFoundError
+
+        updated_item = await self.repository.update(item_id, item_in.dict(exclude_unset=True))
+        # Add any post-update logic here
+        return updated_item
+
+    async def delete(self, item_id: UUID, hard_delete: bool = False, request: Optional[Request] = None) -> Optional[{{ entity_name | capitalize }}]:
+        existing_item = await self.repository.get(item_id)
+        if not existing_item:
+            return None # Or raise EntityNotFoundError
+
+        deleted_item = await self.repository.delete(item_id, hard_delete=hard_delete)
+        # Add any post-deletion logic here
+        return deleted_item
+
+    # Add methods for handling relationships if complex logic is needed
+    # e.g., async def add_related_entity_to_{{ entity_name_snake }}(...)
+
+def get_{{ entity_name | lower }}_service(db_session: AsyncSession = Depends(get_async_db)) -> {{ entity_name | capitalize }}Service:
+    return {{ entity_name | capitalize }}Service(db_session)
