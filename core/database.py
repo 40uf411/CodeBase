@@ -1,17 +1,34 @@
-from typing import Generator
+from typing import Generator, AsyncGenerator # Added AsyncGenerator
 import redis
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession # Added
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
 from .config import settings
 
-# PostgreSQL setup
-engine = create_engine(
+# --- Synchronous PostgreSQL Setup (Deprecated) ---
+# This setup is for synchronous database operations and will be phased out.
+# Prefer using the asynchronous setup below for new code.
+sync_engine = create_engine( # Renamed to sync_engine
     settings.SQLALCHEMY_DATABASE_URI,
     pool_pre_ping=True,
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine) # Renamed
+
+# --- Asynchronous PostgreSQL Setup ---
+async_engine = create_async_engine(
+    settings.SQLALCHEMY_DATABASE_URI,
+    # pool_pre_ping=True, # create_async_engine does not support pool_pre_ping directly
+    # echo=True, # Optional: for debugging SQL
+)
+AsyncSessionLocal = sessionmaker(
+    bind=async_engine,
+    class_=AsyncSession,
+    autocommit=False,
+    autoflush=False,
+    expire_on_commit=False, # Recommended for async sessions
+)
 
 Base = declarative_base()
 
@@ -27,13 +44,27 @@ redis_client = redis.Redis(
 
 def get_db() -> Generator[Session, None, None]:
     """
-    Dependency for getting a database session.
+    (Deprecated) Dependency for getting a synchronous database session.
+    Prefer get_async_db for new asynchronous operations.
     """
-    db = SessionLocal()
+    db = SyncSessionLocal() # Updated to use SyncSessionLocal
     try:
         yield db
     finally:
         db.close()
+
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency for getting an asynchronous database session.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 
 def get_redis() -> Generator[redis.Redis, None, None]:

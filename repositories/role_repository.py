@@ -1,22 +1,21 @@
 from typing import Optional, List
 from uuid import UUID
-# from fastapi import Depends # Removed Depends
-from sqlalchemy.orm import Session
+from sqlalchemy import select # Added
+from sqlalchemy.ext.asyncio import AsyncSession # Added
 
 from .base_repository import BaseRepository
 from models.role import Role
-# from core.database import get_db # Removed get_db
 
 
 class RoleRepository(BaseRepository[Role]):
     """
-    Repository for Role model operations.
+    Repository for Role model operations, adapted for asynchronous operations.
     """
     
-    def __init__(self, db: Session): # Removed Depends(get_db)
-        super().__init__(Role, db)
+    def __init__(self, db: AsyncSession): # Updated to AsyncSession
+        super().__init__(Role, db) # Pass AsyncSession to base
     
-    def get_by_name(self, name: str) -> Optional[Role]:
+    async def get_by_name(self, name: str) -> Optional[Role]:
         """
         Get a role by name.
         
@@ -26,12 +25,14 @@ class RoleRepository(BaseRepository[Role]):
         Returns:
             Role if found, None otherwise
         """
-        return self.db.query(Role).filter(
+        query = select(Role).filter(
             Role.name == name,
             Role.is_deleted == False
-        ).first()
+        )
+        result = await self.db.execute(query)
+        return result.scalars().first()
     
-    def name_exists(self, name: str, exclude_id: Optional[UUID] = None) -> bool:
+    async def name_exists(self, name: str, exclude_id: Optional[UUID] = None) -> bool:
         """
         Check if a role with the given name exists.
         
@@ -42,7 +43,7 @@ class RoleRepository(BaseRepository[Role]):
         Returns:
             True if name exists, False otherwise
         """
-        query = self.db.query(Role).filter(
+        query = select(Role.id).filter( # Optimized to select only ID
             Role.name == name,
             Role.is_deleted == False
         )
@@ -50,11 +51,12 @@ class RoleRepository(BaseRepository[Role]):
         if exclude_id:
             query = query.filter(Role.id != exclude_id)
         
-        return query.first() is not None
+        result = await self.db.execute(query)
+        return result.first() is not None
 
 # Dependency provider function
-from fastapi import Depends # Added
-from core.database import get_db # Added
+from fastapi import Depends
+from core.database import get_async_db # Updated to get_async_db
 
-def get_role_repository(db: Session = Depends(get_db)) -> RoleRepository:
+def get_role_repository(db: AsyncSession = Depends(get_async_db)) -> RoleRepository: # Updated to AsyncSession
     return RoleRepository(db)

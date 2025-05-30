@@ -15,7 +15,6 @@ class Settings(BaseSettings):
         {"name": "auth", "description": "Authentication and authorization"},
         {"name": "privileges", "description": "Privilege management (fine-grained access rights)"},
         {"name": "roles", "description": "Role management (user roles and associated permissions)"},
-        {"name": "samples", "description": "Sample resource management"},
         {"name": "users", "description": "User management"},
     ]
     PROJECTS_TERMS_OF_SERVICE: str = "https://example.com/terms"

@@ -1,22 +1,21 @@
 from typing import Optional, List
 from uuid import UUID
-from fastapi import HTTPException, status # Removed Depends
-from sqlalchemy.orm import Session
+from sqlalchemy import select # Added
+from sqlalchemy.ext.asyncio import AsyncSession # Added
 
 from .base_repository import BaseRepository
 from models.user import User
-# from core.database import get_db # Removed get_db
 
 
 class UserRepository(BaseRepository[User]):
     """
-    Repository for User model operations.
+    Repository for User model operations, adapted for asynchronous operations.
     """
     
-    def __init__(self, db: Session): # Removed Depends(get_db)
-        super().__init__(User, db)
+    def __init__(self, db: AsyncSession): # Updated to AsyncSession
+        super().__init__(User, db) # Pass AsyncSession to base
     
-    def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> Optional[User]:
         """
         Get a user by email.
         
@@ -26,12 +25,14 @@ class UserRepository(BaseRepository[User]):
         Returns:
             User if found, None otherwise
         """
-        return self.db.query(User).filter(
+        query = select(User).filter(
             User.email == email,
             User.is_deleted == False
-        ).first()
+        )
+        result = await self.db.execute(query)
+        return result.scalars().first()
     
-    def get_active_users(self, skip: int = 0, limit: int = 100) -> List[User]:
+    async def get_active_users(self, skip: int = 0, limit: int = 100) -> List[User]:
         """
         Get all active users.
         
@@ -42,12 +43,14 @@ class UserRepository(BaseRepository[User]):
         Returns:
             List of active users
         """
-        return self.db.query(User).filter(
+        query = select(User).filter(
             User.is_active == True,
             User.is_deleted == False
-        ).offset(skip).limit(limit).all()
+        ).offset(skip).limit(limit)
+        result = await self.db.execute(query)
+        return result.scalars().all()
     
-    def get_superusers(self, skip: int = 0, limit: int = 100) -> List[User]:
+    async def get_superusers(self, skip: int = 0, limit: int = 100) -> List[User]:
         """
         Get all superusers.
         
@@ -58,12 +61,14 @@ class UserRepository(BaseRepository[User]):
         Returns:
             List of superusers
         """
-        return self.db.query(User).filter(
+        query = select(User).filter(
             User.is_superuser == True,
             User.is_deleted == False
-        ).offset(skip).limit(limit).all()
+        ).offset(skip).limit(limit)
+        result = await self.db.execute(query)
+        return result.scalars().all()
     
-    def email_exists(self, email: str, exclude_id: Optional[UUID] = None) -> bool:
+    async def email_exists(self, email: str, exclude_id: Optional[UUID] = None) -> bool:
         """
         Check if a user with the given email exists.
         
@@ -74,7 +79,7 @@ class UserRepository(BaseRepository[User]):
         Returns:
             True if email exists, False otherwise
         """
-        query = self.db.query(User).filter(
+        query = select(User.id).filter( # Optimized to select only ID
             User.email == email,
             User.is_deleted == False
         )
@@ -82,11 +87,12 @@ class UserRepository(BaseRepository[User]):
         if exclude_id:
             query = query.filter(User.id != exclude_id)
         
-        return query.first() is not None
+        result = await self.db.execute(query)
+        return result.first() is not None
 
 # Dependency provider function
-from fastapi import Depends # Added
-from core.database import get_db # Added
+from fastapi import Depends
+from core.database import get_async_db # Updated to get_async_db
 
-def get_user_repository(db: Session = Depends(get_db)) -> UserRepository:
+def get_user_repository(db: AsyncSession = Depends(get_async_db)) -> UserRepository: # Updated to AsyncSession
     return UserRepository(db)
