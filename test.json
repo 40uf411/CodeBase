@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Project",
+    "description": "Represents a project with multiple tasks.",
+    "properties": [
+      {"name": "name", "type": "string", "is_nullable": false, "is_unique": true, "is_indexed": true, "description": "Name of the project"},
+      {"name": "description", "type": "text", "is_nullable": true, "description": "Detailed description of the project"},
+      {"name": "start_date", "type": "datetime", "is_nullable": true, "description": "When the project is scheduled to start"},
+      {"name": "end_date", "type": "datetime", "is_nullable": true, "description": "When the project is scheduled to end"},
+      {"name": "budget", "type": "float", "is_nullable": true, "description": "Allocated budget for the project"}
+    ],
+    "relationships": [
+      {
+        "name": "tasks",
+        "type": "one-to-many",
+        "target_entity": "Task",
+        "back_populates": "project",
+        "description": "Tasks associated with this project."
+      }
+    ]
+  },
+  {
+    "name": "Task",
+    "description": "Represents a task within a project.",
+    "properties": [
+      {"name": "title", "type": "string", "is_nullable": false, "description": "Title of the task"},
+      {"name": "description", "type": "text", "is_nullable": true, "description": "Detailed description of the task"},
+      {"name": "due_date", "type": "datetime", "is_nullable": true, "description": "When the task is due"},
+      {"name": "is_completed", "type": "boolean", "is_nullable": false, "default_value": false, "description": "Whether the task is completed"}
+    ],
+    "relationships": [
+      {
+        "name": "project",
+        "type": "many-to-one",
+        "target_entity": "Project",
+        "back_populates": "tasks",
+        "foreign_key_column": "project_id",
+        "is_nullable": false,
+        "description": "The project this task belongs to."
+      },
+      {
+        "name": "tags",
+        "type": "many-to-many",
+        "target_entity": "Tag",
+        "back_populates": "tasks",
+        "association_table_name": "task_tags_association",
+        "description": "Tags associated with this task."
+      }
+    ]
+  },
+  {
+    "name": "Tag",
+    "description": "Represents a tag that can be applied to tasks.",
+    "properties": [
+      {"name": "name", "type": "string", "is_nullable": false, "is_unique": true, "is_indexed": true, "description": "Name of the tag"}
+    ],
+    "relationships": [
+      {
+        "name": "tasks",
+        "type": "many-to-many",
+        "target_entity": "Task",
+        "back_populates": "tags",
+        "association_table_name": "task_tags_association",
+        "description": "Tasks that have this tag."
+      }
+    ]
+  }
+]

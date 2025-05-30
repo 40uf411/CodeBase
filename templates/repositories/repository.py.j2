@@ -1,0 +1,25 @@
+from typing import Optional, List
+from uuid import UUID
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
+
+import core.database
+
+from .base_repository import BaseRepository
+from models.{{ entity_name | lower }} import {{ entity_name | capitalize }}
+from core.database import get_async_db # For dependency injection
+
+class {{ entity_name | capitalize }}Repository(BaseRepository[{{ entity_name | capitalize }}]):
+    def __init__(self, db: AsyncSession):
+        super().__init__({{ entity_name | capitalize }}, db)
+
+    # Add any entity-specific repository methods here if needed
+    # Example:
+    # async def get_by_some_field(self, field_value: str) -> Optional[{{ entity_name | capitalize }}]:
+    #     query = select(self.model).filter(self.model.some_field == field_value, self.model.is_deleted == False)
+    #     result = await self.db.execute(query)
+    #     return result.scalars().first()
+
+def get_{{ entity_name | lower }}_repository(db: AsyncSession = Depends(get_async_db)) -> {{ entity_name | capitalize }}Repository:
+    return {{ entity_name | capitalize }}Repository(db)

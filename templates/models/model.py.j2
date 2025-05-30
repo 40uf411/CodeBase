@@ -1,0 +1,64 @@
+from sqlalchemy import Column, String, Boolean, ForeignKey, Table, Integer, DateTime, Float, Text
+from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
+import uuid_pkg as uuid
+import base_model
+
+import BaseModel
+
+# Association table for Many-to-Many relationships (if any)
+{% for relationship in relationships %}
+{% if relationship.type == "many-to-many" %}
+{{ entity_name | lower }}_{{ relationship.target_entity | lower }}_association = Table(
+    "{{ entity_name | lower }}_{{ relationship.target_entity | lower }}_association",
+    BaseModel.metadata,
+    Column("{{ entity_name | lower }}_id", UUID, ForeignKey("{{ entity_name | lower }}.id"), primary_key=True),
+    Column("{{ relationship.target_entity | lower }}_id", UUID, ForeignKey("{{ relationship.target_entity | lower }}.id"), primary_key=True),
+)
+{% endif %}
+{% endfor %}
+
+class {{ entity_name | capitalize }}(BaseModel):
+    """
+    {{ entity_description }}
+
+    Attributes:
+    {% for prop in properties %}
+        {{ prop.name }}: {{ prop.description }}
+    {% endfor %}
+    {% for relationship in relationships %}
+        {{ relationship.name }}: Relationship to {{ relationship.target_entity | capitalize }} ({{ relationship.type }})
+    {% endfor %}
+    """
+    {% for prop in properties %}
+    {{ prop.name }} = Column({{ prop.type | map_sqlalchemy_type }},
+                          {% if prop.is_unique %}unique=True,{% endif %}
+                          {% if prop.is_indexed %}index=True,{% endif %}
+                          {% if not prop.is_nullable %}nullable=False{% else %}~nullable=True{% endif %},
+                          {% if prop.default_value is not none %}default={{ prop.default_value }}{% endif %})
+    {% endfor %}
+
+    # Relationships
+    {% for relationship in relationships %}
+    {% if relationship.type == "one-to-many" %}
+    # If {{ entity_name }} is the 'one' side of a one-to-many with {{ relationship.target_entity }}
+    {{ relationship.name }} = relationship("{{ relationship.target_entity | capitalize }}", back_populates="{{ relationship.back_populates }}")
+    {% elif relationship.type == "many-to-one" %}
+    # If {{ entity_name }} is the 'many' side of a many-to-one with {{ relationship.target_entity }}
+    {{ relationship.foreign_key_column }} = Column(UUID, ForeignKey("{{ relationship.target_entity | lower }}.id"), nullable={{ "False" if not relationship.is_nullable else "True" }})
+    {{ relationship.name }} = relationship("{{ relationship.target_entity | capitalize }}", back_populates="{{ relationship.back_populates }}")
+    {% elif relationship.type == "many-to-many" %}
+    {{ relationship.name }} = relationship(
+        "{{ relationship.target_entity | capitalize }}",
+        secondary={{ entity_name | lower }}_{{ relationship.target_entity | lower }}_association,
+        back_populates="{{ relationship.back_populates }}"
+    )
+    {% elif relationship.type == "one-to-one" %}
+    # Assuming {{ entity_name }} is the parent side, foreign key on child ({{relationship.target_entity}})
+    # If {{ entity_name }} is child, then foreign_key_column needs to be defined here.
+    {{ relationship.name }} = relationship("{{ relationship.target_entity | capitalize }}", back_populates="{{ relationship.back_populates }}", uselist=False)
+    {% endif %}
+    {% endfor %}
+
+    def __repr__(self) -> str:
+        return f"{{ entity_name | capitalize }} <{self.id}>"
