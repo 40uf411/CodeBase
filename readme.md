@@ -53,9 +53,9 @@ POSTGRES_SERVER=localhost # Or your Docker container name/IP
 POSTGRES_PORT=5432
 
 # DragonFlyDB (Cache) Configuration
-CACHE_HOST=localhost # Or your Docker container name/IP
-CACHE_PORT=6379
-CACHE_PASSWORD= # Optional, if your cache requires a password
+DRAGONFLY_HOST=localhost # Or your Docker container name/IP
+DRAGONFLY_PORT=6379
+DRAGONFLY_PASSWORD= # Optional, if your cache requires a password
 
 # JWT Authentication
 JWT_SECRET_KEY=your_super_secret_jwt_key # Should be a strong, random string
@@ -93,7 +93,7 @@ The application, when `DEBUG=True` in `core/config.py` (or your `.env` file), ma
 
 ### Cache Setup
 
-DragonFlyDB is used for caching. Ensure your DragonFlyDB instance is running and accessible. Configuration is managed via `CACHE_HOST`, `CACHE_PORT`, and `CACHE_PASSWORD` environment variables in your `.env` file or directly in `core/config.py`.
+DragonFlyDB is used for caching. Ensure your DragonFlyDB instance is running and accessible. Configuration is managed via `DRAGONFLY_HOST`, `DRAGONFLY_PORT`, and `DRAGONFLY_PASSWORD` environment variables in your `.env` file or directly in `core/config.py`.
 
 ## Running the Application
 
