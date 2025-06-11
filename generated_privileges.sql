@@ -1,0 +1,4 @@
+INSERT INTO privilege (id, name, description, entity, action, created_at, updated_at, is_deleted) VALUES ('310fd896-c9e3-453f-a640-1bf548afbc71', 'invoice:create', 'Allows to create invoice entities.', 'invoice', 'create', NOW(), NOW(), FALSE);
+INSERT INTO privilege (id, name, description, entity, action, created_at, updated_at, is_deleted) VALUES ('0460ca21-2643-4ab8-8313-f245bef2dcb6', 'invoice:read', 'Allows to read invoice entities.', 'invoice', 'read', NOW(), NOW(), FALSE);
+INSERT INTO privilege (id, name, description, entity, action, created_at, updated_at, is_deleted) VALUES ('7d331207-e0d9-47c2-a7f0-97cfbe82d66b', 'invoice:update', 'Allows to update invoice entities.', 'invoice', 'update', NOW(), NOW(), FALSE);
+INSERT INTO privilege (id, name, description, entity, action, created_at, updated_at, is_deleted) VALUES ('3865dd86-48d6-4a23-9ae9-728a9170acc5', 'invoice:delete', 'Allows to delete invoice entities.', 'invoice', 'delete', NOW(), NOW(), FALSE);

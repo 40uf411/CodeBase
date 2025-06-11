@@ -1,0 +1,50 @@
+site_name: My Platform Documentation
+site_description: 'Comprehensive documentation for My Platform.'
+site_author: 'Development Team'
+
+theme:
+  name: material
+  language: en
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/git-alt
+# repo_url: <your_repo_url_here> # Add your repo URL later
+# repo_name: <your_repo_name_here> # Add your repo name later
+
+# Extensions
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - footnotes
+  - toc:
+      permalink: true
+
+# Basic navigation (will be expanded later)
+nav:
+  - Home: index.md

@@ -12,3 +12,5 @@ redis
 requests
 rich
 inquirer
+mkdocs
+mkdocs-material
