@@ -6,13 +6,11 @@ theme:
   name: material
   language: en
   palette:
-    # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       toggle:
@@ -23,16 +21,16 @@ theme:
     - navigation.sections
     - navigation.expand
     - navigation.top
+    - navigation.indexes # Important for section index pages
     - search.suggest
     - search.highlight
     - content.code.annotate
     - content.code.copy
   icon:
     repo: fontawesome/brands/git-alt
-# repo_url: <your_repo_url_here> # Add your repo URL later
-# repo_name: <your_repo_name_here> # Add your repo name later
+# repo_url: <your_repo_url_here>
+# repo_name: <your_repo_name_here>
 
-# Extensions
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
@@ -45,6 +43,24 @@ markdown_extensions:
   - toc:
       permalink: true
 
-# Basic navigation (will be expanded later)
 nav:
   - Home: index.md
+  - Introduction: introduction.md
+  - 'Getting Started':
+    - 'Installation': getting-started/installation.md
+    - 'Running the Application': getting-started/running-the-app.md
+  - 'Core Concepts':
+    - 'Project Structure': core-concepts/project-structure.md
+    - 'Logging': core-concepts/logging.md
+    - 'Authentication': core-concepts/authentication.md
+    - 'Authorization (RBAC)': core-concepts/authorization.md
+    - 'Routing': core-concepts/routing.md
+    - 'Database & Models': core-concepts/database.md
+    - 'Caching': core-concepts/caching.md
+  - 'Features':
+    - 'Entity Generator': features/entity-generator.md
+    - 'OAuth Integration': features/oauth.md
+  - 'How-to Guides':
+    - 'Overview': how-to-guides/.gitkeep # Or an index.md if preferred for sections
+  - 'API Reference':
+    - 'Overview': api-reference/index.md
