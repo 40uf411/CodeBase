@@ -14,3 +14,4 @@ rich
 inquirer
 mkdocs
 mkdocs-material
+Jinja2>=3.0.0,<4.0.0

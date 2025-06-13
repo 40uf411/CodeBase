@@ -1,0 +1,13 @@
+from fastapi import FastAPI
+
+app = FastAPI(title="{{ service_name }}")
+
+@app.get("/")
+async def read_root():
+    return {"message": "Hello from {{ service_name }}"}
+
+# Add other endpoints here
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
