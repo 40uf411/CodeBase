@@ -5,8 +5,10 @@ This is the central hub for all documentation related to My Platform.
 Explore the following sections to learn more:
 
 - **[Introduction](introduction.md)**: A general overview of the platform.
-- **Getting Started**: Learn how to install and run the application. (Link will be added soon)
-- **Core Concepts**: Understand the fundamental building blocks. (Link will be added soon)
-- **Features**: Detailed guides on specific features. (Link will be added soon)
+- **[Getting Started](getting-started/index.md)**: Learn how to install and run the application.
+- **[Core Concepts](core-concepts/index.md)**: Understand the fundamental building blocks.
+- **[Features](features/index.md)**: Detailed guides on specific features.
+- **[API Reference](api-reference/index.md)**: Detailed API documentation.
+- **[How-To Guides](how-to-guides/index.md)**: Step-by-step guides for common tasks.
 
 More content is being added.
