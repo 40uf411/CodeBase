@@ -1,0 +1,233 @@
+/* General Body Styles - from base.html or inherited */
+body {
+    background-image: url('https://images.unsplash.com/photo-1749731630653-d9b3f00573ed?q=80&w=1932&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: white;
+    margin: 0;
+    padding: 20px; /* Add some padding to the body */
+    line-height: 1.6;
+}
+
+.header.glass-container {
+    text-align: center;
+    padding: 25px;
+    margin-bottom: 30px;
+    background: rgba(0, 0, 0, 0.2); /* Darker header for contrast */
+    backdrop-filter: blur(10px) saturate(1.2);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25);
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 2.8em;
+    font-weight: 300; /* Lighter font weight for modern look */
+}
+
+.controls-global button {
+    padding: 10px 15px;
+    margin-top: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+.controls-global button:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+.controls-global button.active {
+    background-color: rgba(100, 255, 100, 0.3); /* Greenish tint when active */
+    border-color: rgba(100, 255, 100, 0.5);
+}
+
+
+.container.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); /* Responsive grid */
+    gap: 25px; /* Spacing between cards */
+}
+
+.glass-container.service-card {
+    background: rgba(255, 255, 255, 0.1); /* Standard card background */
+    backdrop-filter: blur(12px) saturate(1.5);
+    -webkit-backdrop-filter: blur(12px) saturate(1.5);
+    border-radius: 12px;
+    border: 1px solid rgba(209, 213, 219, 0.25);
+    box-shadow: 0 8px 24px 0 rgba(31, 38, 135, 0.3);
+    padding: 20px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-container.service-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 32px 0 rgba(31, 38, 135, 0.35);
+}
+
+.service-card h2 {
+    font-size: 1.8em;
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-weight: 400;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 10px;
+}
+
+.service-meta {
+    font-size: 0.9em;
+    opacity: 0.8;
+    margin-bottom: 15px;
+}
+.service-meta a {
+    color: #cce7ff; /* Light blue for links */
+    text-decoration: none;
+}
+.service-meta a:hover {
+    text-decoration: underline;
+}
+
+
+.health-status {
+    padding: 15px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    background: rgba(0,0,0,0.15); /* Slightly darker background for health info */
+}
+.health-status p {
+    margin: 8px 0;
+    font-size: 1em;
+}
+.health-status .status-value,
+.health-status .cpu-usage,
+.health-status .memory-usage,
+.health-status .disk-usage {
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: rgba(0,0,0,0.2);
+}
+.status-value { /* Specific styling for status for emphasis */
+    display: inline-block; /* Allows padding and background */
+}
+
+.logs-container {
+    margin-top: 10px;
+}
+.logs-container strong {
+    display: block;
+    margin-bottom: 5px;
+}
+.logs-display {
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 150px;
+    overflow-y: auto;
+    background-color: rgba(0,0,0,0.25);
+    padding: 10px;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85em;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+/* Custom scrollbar for webkit browsers */
+.logs-display::-webkit-scrollbar {
+    width: 8px;
+}
+.logs-display::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+    border-radius: 4px;
+}
+.logs-display::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.3);
+    border-radius: 4px;
+}
+.logs-display::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.4);
+}
+
+
+.service-controls {
+    margin-top: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+    gap: 10px; /* Spacing between buttons */
+}
+.service-controls .control-button {
+    flex-grow: 1; /* Allow buttons to grow and fill space */
+    padding: 10px 12px;
+    background-color: rgba(255, 255, 255, 0.12);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+    font-size: 0.95em;
+}
+.service-controls .control-button:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+.service-controls .control-button:disabled {
+    background-color: rgba(150, 150, 150, 0.1);
+    border-color: rgba(150,150,150,0.2);
+    color: rgba(255,255,255,0.5);
+    cursor: not-allowed;
+    transform: none;
+}
+
+
+.action-result {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: rgba(0,0,0,0.1);
+    font-size: 0.9em;
+    transition: opacity 0.5s ease-in-out;
+}
+.action-result:empty {
+    display: none; /* Hide if empty */
+}
+.action-result strong {
+    color: #FFF;
+}
+.action-result pre { /* For JSON details in error messages */
+    background-color: rgba(0,0,0,0.15);
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 5px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    .header.glass-container h1 {
+        font-size: 2em;
+    }
+    .container.services-grid {
+        grid-template-columns: 1fr; /* Stack cards on smaller screens */
+        gap: 15px;
+    }
+    .glass-container.service-card {
+        padding: 15px;
+    }
+    .service-card h2 {
+        font-size: 1.5em;
+    }
+    .service-controls .control-button {
+        font-size: 0.9em;
+        padding: 8px 10px;
+    }
+}

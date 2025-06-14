@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Microservices Dashboard{% endblock %}
+
+{% block content %}
+<div class="header glass-container">
+    <h1>Microservices Management Dashboard</h1>
+    <div class="controls-global">
+        <button id="toggleAutoRefresh" onclick="toggleAutoRefresh()">Enable Auto-Refresh</button>
+    </div>
+</div>
+
+<div class="container services-grid">
+    {% if services %}
+        {% for service in services %}
+        <div class="glass-container service-card" id="service-card-{{ service.id }}">
+            <h2>{{ service.name | default(service.id | replace('_', ' ') | title) }}</h2>
+            <p class="service-meta"><strong>ID:</strong> {{ service.id }} | <strong>URL:</strong> <a href="{{ service.url }}" target="_blank">{{ service.url }}</a></p>
+
+            <div class="health-status" id="health-{{ service.id }}">
+                <p><strong>Status:</strong> <span class="status-value">Unknown</span></p>
+                <p><strong>CPU:</strong> <span class="cpu-usage">N/A</span>%</p>
+                <p><strong>Memory:</strong> <span class="memory-usage">N/A</span>%</p>
+                <p><strong>Disk:</strong> <span class="disk-usage">N/A</span>%</p>
+                <div class="logs-container">
+                    <strong>Recent Logs:</strong>
+                    <pre class="logs-display">No logs fetched yet.</pre>
+                </div>
+            </div>
+
+            <div class="service-controls">
+                <button class="control-button" onclick="fetchHealth('{{ service.id }}', this)">Get Health</button>
+                <button class="control-button" onclick="controlService('{{ service.id }}', 'start', this)">Start</button>
+                <button class="control-button" onclick="controlService('{{ service.id }}', 'stop', this)">Stop</button>
+                <button class="control-button" onclick="controlService('{{ service.id }}', 'restart', this)">Restart</button>
+            </div>
+            <div class="action-result" id="action-result-{{ service.id }}"></div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="glass-container">
+            <p>No services discovered or configured.</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+let autoRefreshIntervalId = null;
+let autoRefreshEnabled = false;
+const refreshInterval = 10000; // 10 seconds
+
+function disableButton(button, disabled) {
+    if (button) {
+        button.disabled = disabled;
+        button.style.opacity = disabled ? 0.5 : 1;
+    }
+}
+
+async function fetchHealth(serviceId, button) {
+    const healthDiv = document.getElementById(`health-${serviceId}`);
+    if (!healthDiv) { console.error(`Health div for ${serviceId} not found`); return; }
+
+    const statusSpan = healthDiv.querySelector('.status-value');
+    const cpuSpan = healthDiv.querySelector('.cpu-usage');
+    const memorySpan = healthDiv.querySelector('.memory-usage');
+    const diskSpan = healthDiv.querySelector('.disk-usage');
+    const logsPre = healthDiv.querySelector('.logs-display');
+    const actionResultDiv = document.getElementById(`action-result-${serviceId}`);
+
+    if(button) disableButton(button, true);
+    statusSpan.textContent = 'Loading...';
+    cpuSpan.textContent = 'N/A';
+    memorySpan.textContent = 'N/A';
+    diskSpan.textContent = 'N/A';
+    // actionResultDiv.textContent = ''; // Clear previous action results on manual fetch
+
+    try {
+        const response = await fetch(`/service/${serviceId}/health`);
+        const data = await response.json();
+
+        if (response.ok) {
+            statusSpan.textContent = data.status || 'N/A';
+            cpuSpan.textContent = data.cpu_usage_percent !== undefined ? data.cpu_usage_percent.toFixed(1) : 'N/A';
+            memorySpan.textContent = data.memory_usage_percent !== undefined ? data.memory_usage_percent.toFixed(1) : 'N/A';
+            diskSpan.textContent = data.disk_usage_percent !== undefined ? data.disk_usage_percent.toFixed(1) : 'N/A';
+            logsPre.textContent = (data.recent_logs && data.recent_logs.length > 0) ? data.recent_logs.join('\\n') : 'No recent logs.';
+        } else {
+            statusSpan.textContent = data.status || 'Error';
+            logsPre.textContent = data.error ? `Error: ${data.error}` : 'Failed to fetch health.';
+            if(data.details) {
+                 logsPre.textContent += `\\nDetails: ${JSON.stringify(data.details, null, 2)}`;
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching health:', serviceId, error);
+        statusSpan.textContent = 'Client Error';
+        logsPre.textContent = `Client-side error: ${error.message}. Check console.`;
+    } finally {
+        if(button) disableButton(button, false);
+    }
+}
+
+async function controlService(serviceId, action, button) {
+    const actionResultDiv = document.getElementById(`action-result-${serviceId}`);
+    if (!actionResultDiv) { console.error(`Action result div for ${serviceId} not found`); return; }
+
+    const allControlButtons = document.querySelectorAll(`#service-card-${serviceId} .control-button`);
+    allControlButtons.forEach(btn => disableButton(btn, true));
+
+    actionResultDiv.innerHTML = `Attempting to <strong>${action}</strong> ${serviceId}...`;
+
+    try {
+        const response = await fetch(`/service/${serviceId}/${action}`, { method: 'POST' });
+        const data = await response.json();
+
+        if (response.ok) {
+            actionResultDiv.innerHTML = `<strong>${action.toUpperCase()} successful:</strong> ${data.message || 'Success'}`;
+            if (action === 'start' || action === 'stop' || action === 'restart') {
+                setTimeout(() => fetchHealth(serviceId, null), 1000); // Refresh health after action
+            }
+        } else {
+            actionResultDiv.innerHTML = `<strong>${action.toUpperCase()} FAILED:</strong> ${data.error || 'Unknown error'}`;
+            if(data.details) {
+                 actionResultDiv.innerHTML += `<br>Details: <pre>${JSON.stringify(data.details, null, 2)}</pre>`;
+            }
+        }
+    } catch (error) {
+        console.error(`Error during ${action} for ${serviceId}:`, error);
+        actionResultDiv.textContent = `Client-side error during ${action}: ${error.message}. Check console.`;
+    } finally {
+        allControlButtons.forEach(btn => disableButton(btn, false));
+    }
+}
+
+functionfetchAllServicesHealth() {
+    const serviceCards = document.querySelectorAll('.service-card');
+    serviceCards.forEach(card => {
+        const serviceId = card.id.replace('service-card-', '');
+        fetchHealth(serviceId, null); // null because it's an auto-refresh, no specific button initiated
+    });
+}
+
+function toggleAutoRefresh() {
+    const toggleBtn = document.getElementById('toggleAutoRefresh');
+    autoRefreshEnabled = !autoRefreshEnabled;
+    if (autoRefreshEnabled) {
+        toggleBtn.textContent = 'Disable Auto-Refresh';
+        toggleBtn.classList.add('active');
+        fetchAllServicesHealth(); // Initial fetch
+        autoRefreshIntervalId = setInterval(fetchAllServicesHealth, refreshInterval);
+    } else {
+        toggleBtn.textContent = 'Enable Auto-Refresh';
+        toggleBtn.classList.remove('active');
+        clearInterval(autoRefreshIntervalId);
+    }
+}
+
+// Initial fetch for all services when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // fetchAllServicesHealth(); // Optionally fetch all on load, or wait for auto-refresh enable
+});
+
+</script>
+{% endblock %}
