@@ -1,24 +1,38 @@
-from sqlalchemy import Column, String, Boolean, ForeignKey, Table, Integer, DateTime, Float, Text
+import enum
+from sqlalchemy import Column, String, Boolean, ForeignKey, Table, Integer, DateTime, Float, Text, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects import postgresql # For ARRAY type
 from sqlalchemy.dialects.postgresql import UUID
-import uuid_pkg as uuid
-import base_model
+import uuid_pkg as uuid # Assuming this is a project-specific alias for the uuid package
+# Ensure BaseModel is imported correctly. The generator uses context['entity_name_snake'] for filenames.
+# Assuming a common 'base.py' or similar for BaseModel definition.
+from .base import BaseModel # Standard practice for importing from same package
 
-import BaseModel
+{# Generate Python Enum Classes based on all_enums_to_generate from context #}
+{% if all_enums_to_generate %}
+{% for enum_name, enum_details in all_enums_to_generate.items() %}
+class {{ enum_details.class_name }}(str, enum.Enum):
+    """Python Enum for {{ enum_details.class_name }}."""
+    {% for value in enum_details.values %}{% set enum_key = value | upper | replace(' ', '_') | replace('-', '_') | replace('.', '_') %}
+    {{ enum_key }} = "{{ value }}"
+{% endfor %}
 
-# Association table for Many-to-Many relationships (if any)
+{% endfor %}
+{% endif %}
+
+# Association tables for Many-to-Many relationships
 {% for relationship in relationships %}
-{% if relationship.type == "many-to-many" %}
-{{ entity_name | lower }}_{{ relationship.target_entity | lower }}_association = Table(
-    "{{ entity_name | lower }}_{{ relationship.target_entity | lower }}_association",
-    BaseModel.metadata,
-    Column("{{ entity_name | lower }}_id", UUID, ForeignKey("{{ entity_name | lower }}.id"), primary_key=True),
-    Column("{{ relationship.target_entity | lower }}_id", UUID, ForeignKey("{{ relationship.target_entity | lower }}.id"), primary_key=True),
+{% if relationship.is_many_to_many %}
+{{ relationship.association_config_name }} = Table(
+    "{{ relationship.association_config_name }}",
+    BaseModel.metadata, # Using the new context var: relationship.association_metadata_ref
+    Column("{{ relationship.association_left_fk_column }}", UUID, ForeignKey("{{ relationship.association_left_fk_target }}"), primary_key=True),
+    Column("{{ relationship.association_right_fk_column }}", UUID, ForeignKey("{{ relationship.association_right_fk_target }}"), primary_key=True)
 )
 {% endif %}
 {% endfor %}
 
-class {{ entity_name | capitalize }}(BaseModel):
+class {{ entity_name }}(BaseModel): # Use entity_name directly as it's already PascalCase from context
     """
     {{ entity_description }}
 
@@ -27,38 +41,55 @@ class {{ entity_name | capitalize }}(BaseModel):
         {{ prop.name }}: {{ prop.description }}
     {% endfor %}
     {% for relationship in relationships %}
-        {{ relationship.name }}: Relationship to {{ relationship.target_entity | capitalize }} ({{ relationship.type }})
+        {{ relationship.name }}: Relationship to {{ relationship.pascal_case_target_entity }} ({{ relationship.type }})
     {% endfor %}
     """
+    __tablename__ = "{{ entity_name_snake }}"
+
+    # Properties
     {% for prop in properties %}
-    {{ prop.name }} = Column({{ prop.type | map_sqlalchemy_type }},
+    {%   if prop.is_enum_array %}
+    {{ prop.name }} = Column(postgresql.ARRAY(SQLAlchemyEnum({{ prop.enum_class_name }}, name='{{ prop.enum_sql_type_name }}_enum', create_type={{ prop.enum_create_sql_type|string|lower }})),
+    {%   else %}
+    {%     set col_type_info = prop | map_sqlalchemy_type %} {# map_sqlalchemy_type now returns a dict always #}
+    {{ prop.name }} = Column({{ col_type_info.type_string }}{% if col_type_info.type_string == "String" and prop.max_length %}({{prop.max_length}}){% endif %},
+    {%   endif %}
+                          {% if prop.is_primary_key %}primary_key=True, default=uuid.uuid4{% else %}
+                          {% if prop.is_foreign_key %}ForeignKey("{{ prop.foreign_key_to }}.id"),{% endif %}
                           {% if prop.is_unique %}unique=True,{% endif %}
                           {% if prop.is_indexed %}index=True,{% endif %}
-                          {% if not prop.is_nullable %}nullable=False{% else %}~nullable=True{% endif %},
-                          {% if prop.default_value is not none %}default={{ prop.default_value }}{% endif %})
+                          nullable={{ prop.is_nullable|default(True) }}{% endif %},
+                          {% if prop.default_value is not none and not prop.is_primary_key and not prop.is_enum_array %}default={{ prop.default_value | map_pydantic_default }}{% endif %})
     {% endfor %}
 
     # Relationships
     {% for relationship in relationships %}
-    {% if relationship.type == "one-to-many" %}
-    # If {{ entity_name }} is the 'one' side of a one-to-many with {{ relationship.target_entity }}
-    {{ relationship.name }} = relationship("{{ relationship.target_entity | capitalize }}", back_populates="{{ relationship.back_populates }}")
-    {% elif relationship.type == "many-to-one" %}
-    # If {{ entity_name }} is the 'many' side of a many-to-one with {{ relationship.target_entity }}
-    {{ relationship.foreign_key_column }} = Column(UUID, ForeignKey("{{ relationship.target_entity | lower }}.id"), nullable={{ "False" if not relationship.is_nullable else "True" }})
-    {{ relationship.name }} = relationship("{{ relationship.target_entity | capitalize }}", back_populates="{{ relationship.back_populates }}")
-    {% elif relationship.type == "many-to-many" %}
+
+    {% if relationship.is_many_to_one_child %}
+    # {{ entity_name }} is the 'many' side of a many-to-one with {{ relationship.pascal_case_target_entity }}
+    {{ relationship.foreign_key_column_name }} = Column(UUID, ForeignKey("{{ relationship.snake_case_target_entity }}.id"), nullable={{ "False" if not relationship.is_nullable else "True" }})
+    {{ relationship.name }} = relationship("{{ relationship.pascal_case_target_entity }}", back_populates="{{ relationship.back_populates_attribute }}")
+
+    {% elif relationship.is_one_to_many_parent %}
+    # {{ entity_name }} is the 'one' side of a one-to-many with {{ relationship.pascal_case_target_entity }}
+    {{ relationship.name }} = relationship("{{ relationship.pascal_case_target_entity }}", back_populates="{{ relationship.back_populates_attribute }}") # uselist=True is default for one-to-many
+
+    {% elif relationship.is_one_to_one %}
+    # One-to-one relationship with {{ relationship.pascal_case_target_entity }}
+    {% if relationship.has_foreign_key_in_self %}
+    {{ relationship.foreign_key_column_name }} = Column(UUID, ForeignKey("{{ relationship.snake_case_target_entity }}.id"), unique=True, nullable={{ "False" if not relationship.is_nullable else "True" }})
+    {% endif %}
+    {{ relationship.name }} = relationship("{{ relationship.pascal_case_target_entity }}", back_populates="{{ relationship.back_populates_attribute }}", uselist=False)
+
+    {% elif relationship.is_many_to_many %}
+    # Many-to-many relationship with {{ relationship.pascal_case_target_entity }}
     {{ relationship.name }} = relationship(
-        "{{ relationship.target_entity | capitalize }}",
-        secondary={{ entity_name | lower }}_{{ relationship.target_entity | lower }}_association,
-        back_populates="{{ relationship.back_populates }}"
+        "{{ relationship.pascal_case_target_entity }}",
+        secondary={{ relationship.association_config_name }},
+        back_populates="{{ relationship.back_populates_attribute }}"
     )
-    {% elif relationship.type == "one-to-one" %}
-    # Assuming {{ entity_name }} is the parent side, foreign key on child ({{relationship.target_entity}})
-    # If {{ entity_name }} is child, then foreign_key_column needs to be defined here.
-    {{ relationship.name }} = relationship("{{ relationship.target_entity | capitalize }}", back_populates="{{ relationship.back_populates }}", uselist=False)
     {% endif %}
     {% endfor %}
 
     def __repr__(self) -> str:
-        return f"{{ entity_name | capitalize }} <{self.id}>"
+        return f"{{ entity_name }} <{self.id}>" # Use entity_name directly
