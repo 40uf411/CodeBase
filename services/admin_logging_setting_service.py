@@ -5,7 +5,8 @@ from repositories.admin_logging_setting_repository import AdminLoggingSettingRep
 from models.admin_logging_setting import AdminLoggingSetting # For type hinting if needed
 
 class AdminLoggingSettingService:
-    def __init__(self, db: Session): # Changed to accept Session directly
+    def __init__(self, db: Session):  # Changed to accept Session directly
+        self.db = db
         self.repository = AdminLoggingSettingRepository(db)
 
     def get_all_settings(self) -> Dict[str, bool]:

@@ -49,7 +49,7 @@ class {{ entity_name }}(BaseModel): # Use entity_name directly as it's already P
     # Properties
     {% for prop in properties %}
     {%   if prop.is_enum_array %}
-    {{ prop.name }} = Column(postgresql.ARRAY(SQLAlchemyEnum({{ prop.enum_class_name }}, name='{{ prop.enum_sql_type_name }}_enum', create_type={{ prop.enum_create_sql_type|string|lower }})),
+    {{ prop.name }} = Column(postgresql.ARRAY(SQLAlchemyEnum({{ prop.enum_class_name }}, name='{{ prop.enum_sql_type_name }}_enum', create_type={{ prop.enum_create_sql_type|string|lower }})), nullable={{ prop.is_nullable|default(True) }}, default=list)  # Use postgresql.ARRAY for enum arrays
     {%   else %}
     {%     set col_type_info = prop | map_sqlalchemy_type %} {# map_sqlalchemy_type now returns a dict always #}
     {{ prop.name }} = Column({{ col_type_info.type_string }}{% if col_type_info.type_string == "String" and prop.max_length %}({{prop.max_length}}){% endif %},

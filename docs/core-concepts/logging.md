@@ -107,7 +107,7 @@ The following settings are initialized by default. Their `is_enabled` status can
 | `RESOURCE_UPDATE`          | `True`                 | Log updates to resources. General type.                                              |
 | `RESOURCE_DELETE`          | `True`                 | Log deletion of resources. General type.                                             |
 | `PRIVILEGE_ASSIGNED`       | `True`                 | Log assignment of privileges to roles.                                               |
-| `PRIVILE_REMOVED`        | `True`                 | Log removal of privileges from roles.                                                |
+| `PRIVILEGE_REMOVED`        | `True`                 | Log removal of privileges from roles.                                                |
 | `ROLE_ASSIGNED_TO_USER`    | `True`                 | Log assignment of roles to users.                                                    |
 | `ROLE_REMOVED_FROM_USER`   | `True`                 | Log removal of roles from users.                                                     |
 | `SYSTEM_ERROR`             | `True`                 | Log unexpected system errors or exceptions. (Generic type, often for custom errors)  |
