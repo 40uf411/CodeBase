@@ -1,0 +1,4 @@
+pytest>=7.0.0,<8.0.0
+requests-mock>=1.9.0,<2.0.0
+Flask>=2.0.0,<3.1.0 # Add flask as well for test environment consistency
+requests>=2.20.0,<3.0.0 # requests is used by app.py

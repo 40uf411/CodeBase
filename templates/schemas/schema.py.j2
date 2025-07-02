@@ -1,55 +1,113 @@
-from typing import Optional, List
+from typing import Optional, List, ForwardRef
 from pydantic import BaseModel, Field
-float UUID
-from datetime import datetime # Add other necessary imports based on types
+from uuid import UUID # Corrected import
+from datetime import datetime
 
+# Assuming base schemas are defined elsewhere, e.g., in a 'base_schema.py' or similar
+# For this example, we'll define minimal Pydantic BaseModel placeholders if not from a shared base.
+# However, the original template used: from .base import BaseSchema, BaseCreateSchema, BaseUpdateSchema, BaseResponseSchema
+# We will retain this structure assuming these base schemas exist and provide common fields.
 from .base import BaseSchema, BaseCreateSchema, BaseUpdateSchema, BaseResponseSchema
-# Import other response schemas if needed for relationships
-# {% for rel in relationships %}
-# from .{{ rel.target_entity | lower }}_schema import {{ rel.target_entity | capitalize }}Response # Assuming schema file name
-# {% endfor %}
 
-class {{ entity_name | capitalize }}Base(BaseSchema):
+# ForwardRef declarations for relationship schemas (used in Pydantic models below)
+{% for rel in relationships %}
+{{ rel.pascal_case_target_entity }}ResponseSchema = ForwardRef('{{ rel.pascal_case_target_entity }}ResponseSchema')
+{% endfor %}
+
+{# Imports for Python Enums defined in the model layer #}
+{% set imported_enums = [] %}
+{% for prop in properties %}
+{%   if prop.is_enum_array and prop.enum_class_name not in imported_enums %}
+from ..models.{{ entity_name_snake }} import {{ prop.enum_class_name }}
+{%     do imported_enums.append(prop.enum_class_name) %}
+{%   endif %}
+{% endfor %}
+
+class {{ entity_name }}Base(BaseSchema): # entity_name is already PascalCase
     """
-    Base schema for {{ entity_name | capitalize }} model.
+    Base schema for {{ entity_name }} model. Contains common attributes.
     """
     {% for prop in properties %}
-    {{ prop.name }}: {{ prop.type | map_pydantic_type }} {% if prop.is_nullable %}| None {% endif %}= {{ prop.default_value | map_pydantic_default }}
+    {%   set pydantic_type_str = prop | map_pydantic_type %}
+    {{ prop.name }}: {% if prop.is_enum_array %}{{ pydantic_type_str }}{% elif prop.is_nullable %}Optional[{{ pydantic_type_str }}]{% else %}{{ pydantic_type_str }}{% endif %}{% if prop.is_enum_array %} = Field(default_factory=list){% elif prop.is_nullable %} = None{% elif prop.default_value is not none %} = {{ prop.default_value | map_pydantic_default }}{% elif prop.type not in ["datetime", "uuid"] %} = Field(...){% endif %} {# UUIDs for FKs are often optional or handled by relationships #}
     {% endfor %}
 
-class {{ entity_name | capitalize }}Create({{ entity_name | capitalize }}Base, BaseCreateSchema):
-    """
-    Schema for creating a new {{ entity_name | capitalize }}.
-    """
-    # Add any specific fields for creation, or pass
-    pass
+    # Relationship fields
+    {% for rel in relationships %}
+    {% if rel.is_many_to_one_child and rel.has_foreign_key_in_self %}
+    # Foreign key for {{ rel.pascal_case_target_entity }}
+    {{ rel.foreign_key_column_name }}: Optional[UUID] = None
+    {% elif rel.is_one_to_one and rel.has_foreign_key_in_self %}
+    # Foreign key for one-to-one with {{ rel.pascal_case_target_entity }}
+    {{ rel.foreign_key_column_name }}: Optional[UUID] = None
+    {% endif %}
+    {% endfor %}
 
-class {{ entity_name | capitalize }}Update(BaseUpdateSchema):
+class {{ entity_name }}Create({{ entity_name }}Base, BaseCreateSchema):
     """
-    Schema for updating an existing {{ entity_name | capitalize }}.
+    Schema for creating a new {{ entity_name }}.
+    Inherits from {{ entity_name }}Base and adds creation-specific fields.
+    """
+    {% for rel in relationships %}
+    {% if rel.is_many_to_one_child and rel.has_foreign_key_in_self %}
+    # {{ rel.pascal_case_target_entity }} foreign key is required for creation
+    {{ rel.foreign_key_column_name }}: UUID
+    {% elif rel.is_one_to_one and rel.has_foreign_key_in_self %}
+    # {{ rel.pascal_case_target_entity }} foreign key might be required or optional during creation
+    {{ rel.foreign_key_column_name }}: {% if rel.is_nullable %}Optional[UUID]{% else %}UUID{% endif %} = {% if rel.is_nullable %}None{% else %}Field(...){% endif %}
+    {% endif %}
+    {% endfor %}
+    # For other relationship types (one-to-many, many-to-many),
+    # creation might involve providing a list of IDs or handling them via separate endpoints.
+    # This template currently focuses on FKs present in this entity's table.
+
+class {{ entity_name }}Update({{ entity_name }}Base if "{{ entity_name }}Base" in globals() else BaseUpdateSchema): # More robust inheritance
+    """
+    Schema for updating an existing {{ entity_name }}. All fields are optional.
     """
     {% for prop in properties %}
     {{ prop.name }}: Optional[{{ prop.type | map_pydantic_type }}] = None
     {% endfor %}
-
-class {{ entity_name | capitalize }}Response(BaseResponseSchema):
-    """
-    Schema for {{ entity_name | capitalize }} response.
-    """
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
-    deleted_at: Optional[datetime]
-    is_deleted: bool
-    {% for prop in properties %}
-    {{ prop.name }}: {{ prop.type | map_pydantic_type }} {% if prop.is_nullable %}| None{% endif %}
+    {% for rel in relationships %}
+    {% if rel.is_many_to_one_child and rel.has_foreign_key_in_self %}
+    {{ rel.foreign_key_column_name }}: Optional[UUID] = None
+    {% elif rel.is_one_to_one and rel.has_foreign_key_in_self %}
+    {{ rel.foreign_key_column_name }}: Optional[UUID] = None
+    {% endif %}
     {% endfor %}
 
-    # Relationships (adjust based on how you want to represent them)
-    # Example: List of related IDs or full related objects
-    # {% for rel in relationships %}
-    # {{ rel.name }}: Optional[List[{{ rel.target_entity | capitalize }}Response]] = [] # Example
-    # {% endfor %}
+class {{ entity_name }}ResponseSchema({{ entity_name }}Base, BaseResponseSchema):
+    """
+    Schema for {{ entity_name }} response. Includes all base fields,
+    plus response-specific fields like IDs and relationship objects.
+    """
+    # Inherited fields from BaseResponseSchema (like id, created_at, etc.) are assumed
+
+    # Relationship objects for response
+    {% for rel in relationships %}
+    {% if rel.is_one_to_one or rel.is_many_to_one_child %}
+    {{ rel.name }}: Optional['{{ rel.pascal_case_target_entity }}ResponseSchema'] = None
+    {% elif rel.is_one_to_many_parent or rel.is_many_to_many %}
+    {{ rel.name }}: List['{{ rel.pascal_case_target_entity }}ResponseSchema'] = []
+    {% endif %}
+    {% endfor %}
 
     class Config:
-        orm_mode = True
+        orm_mode = True # Deprecated in Pydantic V2, use model_config = {"from_attributes": True}
+        # For Pydantic V2:
+        # model_config = {
+        #     "from_attributes": True
+        # }
+
+# Update forward references for all schemas that use them
+# This should be called after all relevant schema classes are defined.
+# Note: entity_name is already PascalCase from context
+{{ entity_name }}Base.update_forward_refs()
+{{ entity_name }}Create.update_forward_refs()
+{{ entity_name }}Update.update_forward_refs()
+{{ entity_name }}ResponseSchema.update_forward_refs()
+
+# If there are other schemas defined in this file that also use ForwardRef to {{entity_name}}ResponseSchema,
+# they would also need their update_forward_refs() called.
+# For example, if AuthorResponseSchema had a List[BookResponseSchema]:
+# AuthorResponseSchema.update_forward_refs()
